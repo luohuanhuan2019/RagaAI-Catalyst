@@ -1,203 +1,252 @@
 import os
-import sys
 import time
 import argparse
-import pytest
+from langgraph.graph import StateGraph, END
+from langchain_core.prompts import PromptTemplate
+from langchain_community.tools.tavily_search import TavilySearchResults
+from typing import TypedDict, Annotated, List, Dict, Any, Optional
+import operator
+
+import sys
+sys.path.append('/Users/vijay/Desktop/tracer/RagaAI-Catalyst')
+
 from dotenv import load_dotenv
+# Load environment variables from .env file
 load_dotenv()
 
-sys.path.append('.')
+# Import RagaAI Catalyst for tracing
+from ragaai_catalyst import RagaAICatalyst, init_tracing
+from ragaai_catalyst.tracers import Tracer
 
-# Import RagaAI Catalyst for project creation
-from ragaai_catalyst import RagaAICatalyst
+# Initialize RagaAI Catalyst
+def initialize_catalyst():
+    """Initialize RagaAI Catalyst using environment credentials."""
+    catalyst = RagaAICatalyst(
+        access_key=os.getenv('CATALYST_ACCESS_KEY'), 
+        secret_key=os.getenv('CATALYST_SECRET_KEY'), 
+        base_url=os.getenv('CATALYST_BASE_URL')
+    )
+    
+    tracer = Tracer(
+        project_name='testing_v',
+        dataset_name='langgraph_vv',
+        tracer_type="agentic/langgraph",
+    )
+    
+    init_tracing(catalyst=catalyst, tracer=tracer)
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
-sys.path.append(project_root)
 
-research_assistant_path = os.path.join(project_root, "examples/langgraph/personal_research_assistant/research_assistant.py")
+# Initialize language models and tools
+def initialize_models(model_name: str = "gpt-4o-mini", provider: str = "openai", temperature: float = 0.5, max_results: int = 2):
+    """Initialize the language model and search tool based on the provider."""
+    if provider == "openai":
+        from langchain_openai import ChatOpenAI
+        llm = ChatOpenAI(model=model_name, temperature=temperature)
 
-if not os.path.exists(research_assistant_path):
-    print(f"WARNING: Research assistant module not found at: {research_assistant_path}")
-    print(f"Current directory: {os.getcwd()}")
-    print(f"Available files in {os.path.dirname(research_assistant_path)}:")
-    if os.path.exists(os.path.dirname(research_assistant_path)):
-        print(os.listdir(os.path.dirname(research_assistant_path)))
+    elif provider == "google_genai":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm = ChatGoogleGenerativeAI(model=model_name, temperature=temperature)
+    
+    # elif provider == "google_vertexai":
+    #     from langchain_google_vertexai import ChatVertexAI
+    #     llm = ChatVertexAI(model=model_name, google_api_key=os.getenv("GOOGLE_API_KEY"))
 
+    # elif provider == "azure":
+    #     # Example for Azure OpenAI (adjust as needed)
+    #     llm = ChatOpenAI(
+    #         model=model_name,
+    #         temperature=temperature,
+    #         openai_api_base=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    #         openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    #         openai_api_version="2024-08-01-preview"
+    #     )
+    # elif provider == "anthropic":
+    #     from langchain_anthropic import ChatAnthropic
+    #     llm = ChatAnthropic(model=model_name, temperature=temperature)
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+    
+    tavily_tool = TavilySearchResults(max_results=max_results)
+    return llm, tavily_tool
 
-def ensure_project_exists():
-    """Ensure that the project exists in RagaAI Catalyst."""
-    try:
-        # Initialize RagaAI Catalyst
-        catalyst = RagaAICatalyst(
-            access_key=os.getenv('CATALYST_ACCESS_KEY'),
-            secret_key=os.getenv('CATALYST_SECRET_KEY'),
-            base_url=os.getenv('CATALYST_BASE_URL')
+# Initialize default instances
+initialize_catalyst()
+
+# State structure
+class ResearchState(TypedDict):
+    topic: str  
+    sub_questions: List[str]  
+    answers: List[dict] 
+    synthesis: str 
+    criticism: str 
+    iteration: Annotated[int, operator.add]  
+    status: str
+
+# Nodes
+def generate_sub_questions(state: ResearchState) -> ResearchState:
+    """Generate sub-questions based on the topic."""
+    prompt = PromptTemplate(
+        input_variables=["topic"],
+        template="Given the topic '{topic}', generate 3 specific sub-questions to guide research."
+    )
+    response = llm.invoke(prompt.format(topic=state["topic"]))
+    questions = [q.strip() for q in response.content.split("\n") if q.strip()]
+    return {"sub_questions": questions, "status": "generated_questions"}
+
+def research_sub_questions(state: ResearchState) -> ResearchState:
+    """Research each sub-question using Tavily."""
+    answers = []
+    for question in state["sub_questions"]:
+        search_results = tavily_tool.invoke(question)
+        prompt = PromptTemplate(
+            input_variables=["question", "search_results"],
+            template="Answer '{question}' concisely based on: {search_results}"
         )
-        
-        project_name = os.getenv('PROJECT_NAME', 'research_assistant_test')
-        
-        # Print available usecases for reference
-        try:
-            usecases = catalyst.project_use_cases()
-            print(f"Available project usecases: {usecases}")
-        except Exception as e:
-            print(f"Warning: Could not fetch project usecases: {str(e)}")
-            usecases = ["Agentic Application", "Chatbot", "RAG", "Other"]
-            print(f"Using default usecases: {usecases}")
-        
-        # Create the project directly without checking if it exists
-        # The API will handle the case if the project already exists
-        try:
-            print(f"Creating project '{project_name}' in RagaAI Catalyst...")
-            project = catalyst.create_project(
-                project_name=project_name,
-                usecase="Agentic Application"
-            )
-            print(f"Project created successfully")
-        except Exception as e:
-            # If creation fails, it might be because the project already exists
-            # or some other error, but we'll continue anyway
-            print(f"Note: Could not create project: {str(e)}")
-            print(f"Assuming project '{project_name}' already exists and continuing...")
-            
-        return True
-    except Exception as e:
-        print(f"ERROR: Failed to ensure project exists: {str(e)}")
-        return False
+        answer = llm.invoke(prompt.format(
+            question=question,
+            search_results=[r["content"] for r in search_results]
+        ))
+        answers.append({
+            "question": question,
+            "answer": answer.content,
+            "sources": [r["url"] for r in search_results]
+        })
+    return {"answers": answers, "status": "researched"}
 
-def check_environment():
-    """Check if required environment variables are set and set defaults for optional ones."""
-    required_env_vars = [
-        "OPENAI_API_KEY", 
-        "TAVILY_API_KEY", 
-        "CATALYST_ACCESS_KEY", 
-        "CATALYST_SECRET_KEY"
-    ]
-    
-    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-    
-    if missing_vars:
-        print(f"ERROR: Missing required environment variables: {', '.join(missing_vars)}")
-        print("Please set these environment variables before running the example.")
-        return False, missing_vars
-    
-    if not os.getenv("PROJECT_NAME"):
-        os.environ["PROJECT_NAME"] = "research_assistant_test"
-        print(f"Setting default PROJECT_NAME: {os.environ['PROJECT_NAME']}")
-        
-    if not os.getenv("DATASET_NAME"):
-        os.environ["DATASET_NAME"] = "langgraph_integration"
-        print(f"Setting default DATASET_NAME: {os.environ['DATASET_NAME']}")
-    
-    # Ensure the project exists in RagaAI Catalyst
-    if not ensure_project_exists():
-        return False, ["Failed to ensure project exists"]
-    
-    print("All required environment variables are set.")
-    return True, []
+def synthesize_findings(state: ResearchState) -> ResearchState:
+    """Synthesize answers into a cohesive report."""
+    prompt = PromptTemplate(
+        input_variables=["topic", "answers"],
+        template="Synthesize a 200-word report on '{topic}' using these findings:\n{answers}"
+    )
+    synthesis = llm.invoke(prompt.format(
+        topic=state["topic"],
+        answers="\n".join([f"Q: {a['question']}\nA: {a['answer']}" for a in state["answers"]])
+    ))
+    return {"synthesis": synthesis.content, "status": "synthesized"}
 
-def run_research_assistant(topic=None, verbose=True):
-    """Run the personal research assistant example with RagaAI Catalyst integration."""
-    if verbose:
-        print("\n" + "="*80)
-        print("Running Personal Research Assistant with RagaAI Catalyst Integration")
-        print("="*80 + "\n")
-    
-    env_ok, missing_vars = check_environment()
-    if not env_ok:
-        return False
-    
-    if verbose:
-        print("\nInitializing the research assistant...\n")
-    
-    try:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "research_assistant", 
-            research_assistant_path
-        )
-        research_assistant = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(research_assistant)
-        
-        # Use the default topic if none provided
-        research_topic = topic or "Impact of artificial intelligence on healthcare in developing countries"
-        
-        if verbose:
-            print(f"Research Topic: {research_topic}\n")
-            print("Starting research process with RagaAI Catalyst tracing...\n")
-        
-        # Run the assistant with the provided topic
-        result = research_assistant.run_research_assistant(topic=research_topic, print_results=verbose)
-        
-        if verbose:
-            print("\n" + "="*80)
-            print("Research Assistant completed successfully with RagaAI Catalyst integration!")
-            print("="*80 + "\n")
-        
-        return result
-        
-    except Exception as e:
-        print(f"ERROR: An exception occurred while running the research assistant: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
+def critique_synthesis(state: ResearchState) -> ResearchState:
+    """Critique the synthesis for completeness and accuracy."""
+    prompt = PromptTemplate(
+        input_variables=["topic", "synthesis", "answers"],
+        template="Critique this report on '{topic}':\n{synthesis}\nBased on: {answers}\nReturn 'pass' or issues."
+    )
+    critique = llm.invoke(prompt.format(
+        topic=state["topic"],
+        synthesis=state["synthesis"],
+        answers="\n".join([f"Q: {a['question']}\nA: {a['answer']}" for a in state["answers"]])
+    ))
+    return {"criticism": critique.content}
 
-# Pytest test functions
-@pytest.mark.integration
-def test_environment_setup():
-    """Test that all required environment variables are set."""
-    env_ok, missing_vars = check_environment()
-    assert env_ok, f"Missing environment variables: {', '.join(missing_vars)}"
+def refine_synthesis(state: ResearchState) -> ResearchState:
+    """Refine the synthesis based on critique."""
+    prompt = PromptTemplate(
+        input_variables=["topic", "synthesis", "critique", "answers"],
+        template="Refine this report on '{topic}':\n{synthesis}\nFix these issues: {critique}\nUsing: {answers}"
+    )
+    refined = llm.invoke(prompt.format(
+        topic=state["topic"],
+        synthesis=state["synthesis"],
+        critique=state["criticism"],
+        answers="\n".join([f"Q: {a['question']}\nA: {a['answer']}" for a in state["answers"]])
+    ))
+    return {"synthesis": refined.content, "iteration": state["iteration"] + 1, "status": "refined"}
 
-@pytest.mark.integration
-def test_research_assistant_imports():
-    """Test that the research assistant module can be imported."""
-    try:
-        # First, let's check if the file exists
-        assert os.path.exists(research_assistant_path), f"Research assistant file not found at {research_assistant_path}"
-        
-        # Instead of importing the module which would execute the code and try to initialize Catalyst,
-        # let's just check that the file exists and contains the expected function names
-        with open(research_assistant_path, 'r') as f:
-            content = f.read()
-            
-        # Check that the required functions are defined in the file
-        assert 'def initialize_catalyst' in content, "initialize_catalyst function not found"
-        assert 'def initialize_models' in content, "initialize_models function not found"
-        assert 'def run_research_assistant' in content, "run_research_assistant function not found"
-        assert 'app = workflow.compile()' in content, "app definition not found"
-        
-        print("Successfully verified research assistant module structure")
-    except Exception as e:
-        pytest.fail(f"Failed to verify research assistant module: {str(e)}")
+# Conditional logic
+def should_refine(state: ResearchState) -> str:
+    if "pass" in state["criticism"].lower() or state["iteration"] >= 2:
+        return "end"
+    return "refine"
 
-@pytest.mark.integration
-def test_research_assistant_end_to_end():
-    """Test the research assistant end-to-end with a real API call.
+# State graph
+workflow = StateGraph(ResearchState)
+workflow.add_node("generate", generate_sub_questions)
+workflow.add_node("research", research_sub_questions)
+workflow.add_node("synthesize", synthesize_findings)
+workflow.add_node("critique", critique_synthesis)
+workflow.add_node("refine", refine_synthesis)
+
+# Workflow
+workflow.set_entry_point("generate")
+workflow.add_edge("generate", "research")
+workflow.add_edge("research", "synthesize")
+workflow.add_edge("synthesize", "critique")
+workflow.add_conditional_edges(
+    "critique",
+    should_refine,
+    {"refine": "refine", "end": END}
+)
+workflow.add_edge("refine", "critique")
+
+# Compile the workflow
+app = workflow.compile()
+
+def run_research_assistant(topic: str = "Impact of AI on healthcare by 2030", print_results: bool = True) -> Dict[str, Any]:
+    """Run the research assistant workflow with the given topic.
     
-    This test is skipped by default to avoid making API calls during regular testing.
-    Set the RUN_FULL_INTEGRATION_TESTS environment variable to run this test.
+    Args:
+        topic: The research topic to investigate
+        print_results: Whether to print the results to the console
+        
+    Returns:
+        The final state of the workflow
     """
-    result = run_research_assistant(topic="Impact of renewable energy on climate change", verbose=False)
-    assert result is not False, "Research assistant execution failed"
-    assert "topic" in result
-    assert "sub_questions" in result
-    assert "answers" in result
-    assert "synthesis" in result
-    assert "criticism" in result
-    assert len(result["sub_questions"]) > 0
-    assert len(result["answers"]) > 0
-    assert len(result["synthesis"]) > 0
-
-def main():
-    """Main function to run the research assistant with command line arguments."""
-    parser = argparse.ArgumentParser(description="Run the Personal Research Assistant with RagaAI Catalyst integration")
-    parser.add_argument("--topic", type=str, help="Research topic to investigate")
-    parser.add_argument("--quiet", action="store_true", help="Run in quiet mode (minimal output)")
+    # Initialize the state
+    initial_state = {
+        "topic": topic,
+        "sub_questions": [],
+        "answers": [],
+        "synthesis": "",
+        "criticism": "",
+        "iteration": 0,
+        "status": "start"
+    }
     
-    args = parser.parse_args()
+    # Start timing
+    start_time = time.time()
     
-    run_research_assistant(topic=args.topic, verbose=not args.quiet)
+    # Run the workflow with tracing
+    if print_results:
+        print(f"Starting the Personal Research Assistant for topic: '{topic}'...")
+    
+    result = app.invoke(initial_state)
+    
+    # Calculate duration
+    duration = time.time() - start_time
+    
+    # Print results if requested
+    if print_results:
+        print("\nFinal Research Report:")
+        print(f"Topic: {result['topic']}")
+        print("\nSub-Questions:")
+        for i, question in enumerate(result['sub_questions'], 1):
+            print(f"  {i}. {question}")
+        
+        print("\nResearch Findings:")
+        for i, ans in enumerate(result["answers"], 1):
+            print(f"\nQ{i}: {ans['question']}")
+            print(f"A: {ans['answer']}")
+            print(f"Sources: {ans['sources']}")
+        
+        print(f"\nSynthesis:\n{result['synthesis']}")
+        print(f"\nCritique: {result['criticism']}")
+        print(f"Iterations: {result['iteration']}")
+        print(f"Total execution time: {duration:.2f} seconds")
+    
+    return result
 
 if __name__ == "__main__":
-    main()
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Run the Personal Research Assistant with different LLM providers.")
+    parser.add_argument("--model", type=str, default="gpt-4o-mini", help="The model to use (e.g., gpt-4o-mini).")
+    parser.add_argument("--provider", type=str, default="openai", help="The LLM provider (e.g., openai, azure, google).")
+    parser.add_argument("--async_llm", type=bool, default=False, help="Whether to use async LLM calls.")
+    parser.add_argument("--syntax", type=str, default="chat", help="The syntax to use (e.g., chat).")
+    args = parser.parse_args()
+
+    # Initialize the LLM and tools based on the provided arguments
+    llm, tavily_tool = initialize_models(model_name=args.model, provider=args.provider)
+    # llm, tavily_tool = initialize_models(model_name="gemini-1.5-flash", provider="google_vertexai")
+
+    # Run the research assistant
+    run_research_assistant()
