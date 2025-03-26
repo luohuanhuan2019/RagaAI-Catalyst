@@ -1,13 +1,15 @@
 import os
 import pytest
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from tests.examples.test_utils.get_trace_data import (
+from examples.test_utils.get_trace_data import (
     run_command,
     extract_information,
     load_trace_data
 )
 
-from tests.examples.test_utils.get_components import (
+from examples.test_utils.get_components import (
     get_component_structure_and_sequence
 )
 
@@ -17,7 +19,6 @@ from tests.examples.test_utils.get_components import (
     # ("gemini-1.5-flash", "google_vertexai", False, "chat"),
     # ("gpt-3.5-turbo", "azure", False, "chat"),
     # ("gemini-1.5-flash", "anthropic", False, "chat"),
-
 ])
 def test_research_assistant(model: str, provider: str, async_llm: bool, syntax: str):
     # Build the command to run research_assistant.py with the provided arguments
@@ -39,5 +40,3 @@ def test_research_assistant(model: str, provider: str, async_llm: bool, syntax: 
 
     # Validate component sequence
     assert len(component_sequence) >= 2, f"Expected at least 2 components, got {len(component_sequence)}"
-
-    

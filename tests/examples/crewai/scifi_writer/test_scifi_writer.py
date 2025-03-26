@@ -1,13 +1,15 @@
 import os
 import pytest
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from tests.examples.test_utils.get_trace_data import (
+from examples.test_utils.get_trace_data import (
     run_command,
     extract_information,
     load_trace_data
 )
 
-from tests.examples.test_utils.get_components import (
+from examples.test_utils.get_components import (
     get_component_structure_and_sequence
 )
 

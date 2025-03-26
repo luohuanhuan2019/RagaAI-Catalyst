@@ -1,8 +1,11 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
+
 from ragaai_catalyst import RagaAICatalyst, init_tracing
 from ragaai_catalyst.tracers import Tracer
 import argparse
 
-import os
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import tool

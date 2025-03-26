@@ -12,6 +12,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
 import argparse
 
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
+
 from ragaai_catalyst import RagaAICatalyst, init_tracing
 from ragaai_catalyst.tracers import Tracer
 

@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
+
 # Import RagaAI Catalyst for tracing
 from ragaai_catalyst import RagaAICatalyst, init_tracing
 from ragaai_catalyst.tracers import Tracer

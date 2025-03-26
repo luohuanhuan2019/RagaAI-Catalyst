@@ -11,6 +11,9 @@ from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.postprocessor import MetadataReplacementPostProcessor
 import argparse
 
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
+
 from dotenv import load_dotenv
 from ragaai_catalyst import RagaAICatalyst, init_tracing
 from ragaai_catalyst.tracers import Tracer
