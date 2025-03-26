@@ -45,7 +45,7 @@ Create a new project and choose a use case from the available options:
 # Create a new project
 project = catalyst.create_project(
     project_name="Test-RAG-App-1",
-    usecase="Chatbot"  # Options: Chatbot, RAG, ContentGen, Custom
+    usecase="Chatbot"  # Options : Chatbot, Q/A, Others, Agentic Application
 )
 
 # List available use cases
