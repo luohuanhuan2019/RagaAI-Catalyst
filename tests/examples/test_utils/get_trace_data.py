@@ -4,9 +4,6 @@ import json
 import subprocess
 import logging
 from typing import Dict, Optional, List
-import pytest
-
-from get_components_sequence import get_component_structure_and_sequence
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -75,35 +72,3 @@ def load_trace_data(locations: List[str]) -> Dict:
     return final_data
 
 
-@pytest.mark.parametrize("model, provider, async_llm, syntax", [
-    ("gpt-4o-mini", "openai", False, "chat"),
-    ("gemini-1.5-flash", "google_genai", False, "chat"),
-    # ("gemini-1.5-flash", "google_vertexai", False, "chat"),
-    # ("gpt-3.5-turbo", "azure", False, "chat"),
-    # ("gemini-1.5-flash", "anthropic", False, "chat"),
-
-])
-
-
-def test_llm_providers(model: str, provider: str, async_llm: bool, syntax: str):
-    # Build the command to run test_research_assistant.py with the provided arguments
-    command = f'python test_research_assistant.py --model {model} --provider {provider} --async_llm {async_llm} --syntax {syntax}'
-    cwd = os.path.dirname(os.path.abspath(__file__))  # Use the current directory
-    output = run_command(command, cwd=cwd)
-    
-    # Extract trace file location from logs
-    locations = extract_information(output)
-
-    # Load and validate the trace data
-    data = load_trace_data(locations)
-
-    # Get component structure and sequence
-    component_sequence = get_component_structure_and_sequence(data)
-
-    # Print component sequence
-    print("Component sequence:", component_sequence)
-
-    # Validate component sequence
-    assert len(component_sequence) >= 2, f"Expected at least 2 components, got {len(component_sequence)}"
-
-    

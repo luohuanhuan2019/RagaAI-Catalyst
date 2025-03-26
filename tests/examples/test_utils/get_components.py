@@ -25,6 +25,5 @@ def get_component_structure_and_sequence(json_data):
     # Process each component and its children
     for component in span_components:
         process_component(component, all_components)
-
-
     return all_components
+

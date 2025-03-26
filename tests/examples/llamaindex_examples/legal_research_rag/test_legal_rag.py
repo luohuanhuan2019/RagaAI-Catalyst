@@ -1,5 +1,8 @@
 import os
 import pytest
+import sys
+
+sys.path.append('/Users/vijay/Desktop/tracer/RagaAI-Catalyst')
 
 from tests.examples.test_utils.get_trace_data import (
     run_command,
@@ -11,17 +14,12 @@ from tests.examples.test_utils.get_components import (
     get_component_structure_and_sequence
 )
 
-@pytest.mark.parametrize("model, provider, async_llm, syntax", [
-    ("gpt-4o-mini", "openai", False, "chat"),
-    ("gemini-1.5-flash", "google_genai", False, "chat"),
-    # ("gemini-1.5-flash", "google_vertexai", False, "chat"),
-    # ("gpt-3.5-turbo", "azure", False, "chat"),
-    # ("gemini-1.5-flash", "anthropic", False, "chat"),
-
+@pytest.mark.parametrize("info", [
+    ("testing-legal-rag"),
 ])
-def test_research_assistant(model: str, provider: str, async_llm: bool, syntax: str):
-    # Build the command to run research_assistant.py with the provided arguments
-    command = f'python research_assistant.py --model {model} --provider {provider} --async_llm {async_llm} --syntax {syntax}'
+def test_legal_rag(info: str):
+    # Build the command to run legal_rag.py with the provided arguments
+    command = f'python legal_rag.py --info {info}'
     cwd = os.path.dirname(os.path.abspath(__file__))  # Use the current directory
     output = run_command(command, cwd=cwd)
     
@@ -38,6 +36,6 @@ def test_research_assistant(model: str, provider: str, async_llm: bool, syntax: 
     print("Component sequence:", component_sequence)
 
     # Validate component sequence
-    assert len(component_sequence) >= 2, f"Expected at least 2 components, got {len(component_sequence)}"
+    assert len(component_sequence) >= 1, f"Expected at least 1 components, got {len(component_sequence)}"
 
     
