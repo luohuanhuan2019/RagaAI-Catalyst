@@ -75,11 +75,49 @@ print(dataset_manager.get_schema_mapping())
 
 ## **4. Trace Your Application**
 
-You can enable tracing in two ways:
+
+
+### **Auto-Instrumentation**
+
+Auto-Instrumentation automatically traces your application after initializing the correct tracer.
+
+#### **Implementation**
+
+```python
+from ragaai_catalyst import init_tracing, Tracer
+
+# Initialize the tracer 
+tracer = Tracer(
+    project_name="Project_Name",
+    dataset_name="Dataset_Name",
+    tracer_type="agentic/langgraph"  
+)
+
+# Enable auto-instrumentation
+init_tracing(catalyst=catalyst, tracer=tracer)
+```
+
+#### **Supported Tracer Types**
+
+Choose from the given supported tracer types based on your framework:
+
+- `agentic/langgraph`
+- `agentic/langchain`
+- `agentic/smolagents`
+- `agentic/openai_agents`
+- `agentic/llamaindex`
+- `agentic/haystack`
+
+---
+
+
+
+### Custom Tracing
+
+You can enable custom tracing in two ways:
 
 1. Using the `with tracer()` function.
 2. Manually starting and stopping the tracer with `tracer.start()` and `tracer.stop()`.
-
 
 ```python
 from ragaai_catalyst import Tracer
