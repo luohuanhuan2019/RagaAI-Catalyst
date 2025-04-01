@@ -24,7 +24,6 @@ This script fetches, downloads, and summarizes the most upvoted paper from Huggi
 
 ## Requirements
 
-- Python 3.x
 - SmoLAgents
 - Hugging Face API token
 - Dependencies:

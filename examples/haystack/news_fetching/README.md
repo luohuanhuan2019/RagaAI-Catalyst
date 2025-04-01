@@ -13,7 +13,6 @@ The example builds an agent that can:
 
 ## Prerequisites
 
-- Python 3.x
 - OpenAI API key
 - SerperDev API key
 - RagaAI Catalyst credentials
