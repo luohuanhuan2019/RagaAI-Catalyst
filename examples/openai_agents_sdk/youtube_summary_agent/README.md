@@ -14,7 +14,7 @@ The system uses multiple agents to handle different aspects of the workflow, inc
 
 ## Requirements
 
-- Python 3.8+
+- Python >=3.9 and <=3.12
 - OpenAI API key
 - YouTube Data API key
 - RagaAI Catalyst credentials (optional, for tracing)
