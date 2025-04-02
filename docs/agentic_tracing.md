@@ -4,12 +4,12 @@ The module includes utilities for cost tracking, performance monitoring, and deb
 #### Supported Tracer Types
 Choose from the given supported tracer types based on your framework:
 
-1- agentic/langgraph
-2- agentic/langchain
-3- agentic/smolagents
-4- agentic/openai_agents
-5- agentic/llamaindex
-6- agentic/haystack
+1. agentic/langgraph
+2. agentic/langchain
+3. agentic/smolagents
+4. agentic/openai_agents
+5. agentic/llamaindex
+6. agentic/haystack
 
 #### Agentic Tracing Features
 1- add span level metrics
