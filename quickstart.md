@@ -17,6 +17,8 @@ pip install ragaai-catalyst
 2. Navigate to **Profile Settings** → **Authentication**.
 3. Click **Generate New Key** to obtain your **Access Key** and **Secret Key**.
 
+![How to generate authentication keys](docs/img/autheticate.gif)
+
 ### **Initialize the SDK**
 
 To begin using Catalyst, initialize it as follows:
@@ -30,7 +32,6 @@ catalyst = RagaAICatalyst(
     base_url="BASE_URL"  
 )
 ```
-![How to generate authentication keys](docs/img/autheticate.gif)
 
 ## **3. Create Your First Project**
 
