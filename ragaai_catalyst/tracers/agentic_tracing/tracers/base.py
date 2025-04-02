@@ -92,6 +92,7 @@ class BaseTracer:
         self._upload_tasks = []
         self._is_uploading = False
         self._upload_completed_callback = None
+        self.timeout = self.user_details.get("timeout", 120)
         
         ensure_uploader_running()
 
@@ -270,7 +271,7 @@ class BaseTracer:
             # Process trace spans
             self.trace = self._change_span_ids_to_int(self.trace)
             self.trace = self._change_agent_input_output(self.trace)
-            self.trace = self._extract_cost_tokens(self.trace)
+            # self.trace = self._extract_cost_tokens(self.trace)
 
             # Create traces directory and prepare file paths
             self.traces_dir = tempfile.gettempdir()
@@ -288,6 +289,7 @@ class BaseTracer:
             trace_data = self.trace.to_dict()
             trace_data["metrics"] = self.trace_metrics
             cleaned_trace_data = self._clean_trace(trace_data)
+            cleaned_trace_data = self._extract_cost_tokens(cleaned_trace_data)
             
             # Add interactions
             interactions = self.format_interactions()
@@ -314,7 +316,8 @@ class BaseTracer:
                 project_id=self.project_id,
                 dataset_name=self.dataset_name,
                 user_details=self.user_details,
-                base_url=self.base_url
+                base_url=self.base_url,
+                timeout=self.timeout
             )
             
             # For backward compatibility
@@ -505,9 +508,11 @@ class BaseTracer:
                         elif child_type == "agent":
                             process_spans([child])
 
-        process_spans(trace.data[0]["spans"])
-        trace.metadata.cost = cost
-        trace.metadata.tokens = tokens
+        process_spans(trace["data"][0]["spans"])
+        trace["metadata"].cost = cost
+        trace["metadata"].tokens = tokens
+        trace["metadata"].total_cost = cost.get("total_cost", 0)
+        trace["metadata"].total_tokens = tokens.get("total_tokens", 0)
         return trace
 
     def _clean_trace(self, trace):
