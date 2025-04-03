@@ -26,6 +26,9 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
                 
                 elif span["name"] == "VectorStoreRetriever":
                     return span["attributes"]["input.value"]
+                
+                elif span["name"] == "ChatAnthropic":
+                    return span["attributes"]["llm.input_messages.1.message.content"]
         return None
     
     def get_response(input_trace):
@@ -33,10 +36,15 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
             for span in input_trace:
                 if span["name"] == "ChatOpenAI":
                     return span["attributes"]["llm.output_messages.0.message.content"]
+
                 elif span["name"] == "LLMChain":
                     return json.loads(span["attributes"]["output.value"])
+
                 elif span["name"] == "RetrievalQA":
                     return span["attributes"]["output.value"]
+
+                elif span["name"] == "ChatAnthropic":
+                    return span["attributes"]["llm.output_messages.0.message.content"]
         return None
     
     def get_context(input_trace):
@@ -85,7 +93,7 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict):
     additional_metadata["tokens"] = {}
     try:
         for span in spans:
-            if span["name"] == "ChatOpenAI":
+            if span["name"] in ["ChatOpenAI", "ChatAnthropic"]:
                 start_time = datetime.fromisoformat(span["start_time"][:-1])  # Remove 'Z' and parse
                 end_time = datetime.fromisoformat(span["end_time"][:-1])    # Remove 'Z' and parse
                 additional_metadata["latency"] = (end_time - start_time).total_seconds()
@@ -93,11 +101,13 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict):
                 additional_metadata["model"] = additional_metadata["model_name"]
                 additional_metadata["tokens"]["prompt"] = span["attributes"]["llm.token_count.prompt"]
                 additional_metadata["tokens"]["completion"] = span["attributes"]["llm.token_count.completion"]
-                additional_metadata["tokens"]["total"] = span["attributes"]["llm.token_count.total"]
+                additional_metadata["tokens"]["total"] = additional_metadata["tokens"]["prompt"] + additional_metadata["tokens"]["completion"]
+
     except Exception as e:
         logger.error(f"Error getting additional metadata: {str(e)}")
     
     try:
+        import pdb; pdb.set_trace()
         if custom_model_cost.get(additional_metadata['model_name']):
             model_cost_data = custom_model_cost[additional_metadata['model_name']]
         else:
