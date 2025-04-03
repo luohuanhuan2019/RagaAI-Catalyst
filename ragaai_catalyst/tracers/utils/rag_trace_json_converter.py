@@ -16,16 +16,16 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
         if tracer_type == "rag/langchain":
             for span in input_trace:
                 if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
-                    return span["attributes"]["llm.input_messages.1.message.content"]
+                    return span["attributes"].get("llm.input_messages.1.message.content")
 
                 elif span["name"] == "LLMChain":
-                    return json.loads(span["attributes"]["input.value"])["question"]
+                    return json.loads(span["attributes"].get("input.value", "{}")).get("question")
 
                 elif span["name"] == "RetrievalQA":
-                    return span["attributes"]["input.value"]
+                    return span["attributes"].get("input.value")
                 
                 elif span["name"] == "VectorStoreRetriever":
-                    return span["attributes"]["input.value"]
+                    return span["attributes"].get("input.value")
                 
         return None
     
@@ -33,13 +33,13 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
         if tracer_type == "rag/langchain":
             for span in input_trace:
                 if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
-                    return span["attributes"]["llm.output_messages.0.message.content"]
+                    return span["attributes"].get("llm.output_messages.0.message.content")
 
                 elif span["name"] == "LLMChain":
-                    return json.loads(span["attributes"]["output.value"])
+                    return json.loads(span["attributes"].get("output.value", ""))
 
                 elif span["name"] == "RetrievalQA":
-                    return span["attributes"]["output.value"]
+                    return span["attributes"].get("output.value")
 
         return None
     
@@ -47,7 +47,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
         if tracer_type == "rag/langchain":
             for span in input_trace:
                 if span["name"] == "VectorStoreRetriever":
-                    return span["attributes"]["retrieval.documents.1.document.content"]
+                    return span["attributes"].get("retrieval.documents.1.document.content")
         return None
         
     prompt = get_prompt(input_trace)
@@ -61,7 +61,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
 
     trace_aggregate['trace_id'] = trace_id
     trace_aggregate['session_id'] = None
-    trace_aggregate["metadata"] = user_details["trace_user_detail"]["metadata"]
+    trace_aggregate["metadata"] = user_details.get("trace_user_detail", {}).get("metadata")
 
     #dummy data need to be fetched
     trace_aggregate["pipeline"] = {
@@ -90,27 +90,26 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict):
     try:
         for span in spans:
             if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
-                start_time = datetime.fromisoformat(span["start_time"][:-1])  # Remove 'Z' and parse
-                end_time = datetime.fromisoformat(span["end_time"][:-1])    # Remove 'Z' and parse
+                start_time = datetime.fromisoformat(span.get("start_time", "")[:-1])  # Remove 'Z' and parse
+                end_time = datetime.fromisoformat(span.get("end_time", "")[:-1])    # Remove 'Z' and parse
                 additional_metadata["latency"] = (end_time - start_time).total_seconds()
-                additional_metadata["model_name"] = span["attributes"]["llm.model_name"].replace("models/","")
+                additional_metadata["model_name"] = span["attributes"].get("llm.model_name", "").replace("models/", "")
                 additional_metadata["model"] = additional_metadata["model_name"]
-                additional_metadata["tokens"]["prompt"] = span["attributes"]["llm.token_count.prompt"]
-                additional_metadata["tokens"]["completion"] = span["attributes"]["llm.token_count.completion"]
+                additional_metadata["tokens"]["prompt"] = span["attributes"].get("llm.token_count.prompt", 0)
+                additional_metadata["tokens"]["completion"] = span["attributes"].get("llm.token_count.completion", 0)
                 additional_metadata["tokens"]["total"] = additional_metadata["tokens"]["prompt"] + additional_metadata["tokens"]["completion"]
 
     except Exception as e:
         logger.error(f"Error getting additional metadata: {str(e)}")
     
     try:
-        import pdb; pdb.set_trace()
-        if custom_model_cost.get(additional_metadata['model_name']):
-            model_cost_data = custom_model_cost[additional_metadata['model_name']]
+        if custom_model_cost.get(additional_metadata.get('model_name')):
+            model_cost_data = custom_model_cost[additional_metadata.get('model_name')]
         else:
-            model_cost_data = model_cost_dict[additional_metadata['model_name']]
+            model_cost_data = model_cost_dict.get(additional_metadata.get('model_name'))
         if 'tokens' in additional_metadata and all(k in additional_metadata['tokens'] for k in ['prompt', 'completion']):
-            prompt_cost = additional_metadata["tokens"]["prompt"]*model_cost_data["input_cost_per_token"]
-            completion_cost = additional_metadata["tokens"]["completion"]*model_cost_data["output_cost_per_token"]
+            prompt_cost = additional_metadata["tokens"]["prompt"]*model_cost_data.get("input_cost_per_token", 0)
+            completion_cost = additional_metadata["tokens"]["completion"]*model_cost_data.get("output_cost_per_token", 0)
             additional_metadata["cost"] = prompt_cost + completion_cost 
             additional_metadata["total_cost"] = additional_metadata["cost"]
             additional_metadata["total_latency"] = additional_metadata["latency"]
