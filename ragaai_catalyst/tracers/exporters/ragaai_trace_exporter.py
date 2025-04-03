@@ -145,7 +145,7 @@ class RAGATraceExporter(SpanExporter):
             with open(os.path.join(os.getcwd(), "langchain_traces_debug.json"), "w") as f:
                 json.dump(spans, f, cls=TracerJSONEncoder, indent=4)
             
-            ragaai_trace, additional_metadata = rag_trace_json_converter(spans, self.custom_model_cost, trace_id, self.user_details)
+            ragaai_trace, additional_metadata = rag_trace_json_converter(spans, self.custom_model_cost, trace_id, self.user_details, self.tracer_type)
             ragaai_trace["metadata"]["recorded_on"] = datetime.datetime.now().astimezone().isoformat()
             ragaai_trace["metadata"]["log_source"] = "langchain_tracer"
 

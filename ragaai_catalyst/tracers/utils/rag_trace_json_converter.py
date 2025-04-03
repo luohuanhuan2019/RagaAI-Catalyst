@@ -9,45 +9,52 @@ logging_level = (
     logger.setLevel(logging.DEBUG) if os.getenv("DEBUG") == "1" else logging.INFO
 )
 
-def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_details):
+def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_details, tracer_type):
     trace_aggregate = {}
-
+    
     def get_prompt(input_trace):
-        for span in input_trace:
-            if span["name"] == "ChatOpenAI":
-                return span["attributes"]["llm.input_messages.1.message.content"]
+        if tracer_type == "rag/langchain":
+            for span in input_trace:
+                if span["name"] == "ChatOpenAI":
+                    return span["attributes"]["llm.input_messages.1.message.content"]
 
-            elif span["name"] == "LLMChain":
-                return json.loads(span["attributes"]["input.value"])["question"]
+                elif span["name"] == "LLMChain":
+                    return json.loads(span["attributes"]["input.value"])["question"]
 
-            elif span["name"] == "RetrievalQA":
-                return span["attributes"]["input.value"]
-            
-            elif span["name"] == "VectorStoreRetriever":
-                return span["attributes"]["input.value"]
+                elif span["name"] == "RetrievalQA":
+                    return span["attributes"]["input.value"]
+                
+                elif span["name"] == "VectorStoreRetriever":
+                    return span["attributes"]["input.value"]
         return None
     
     def get_response(input_trace):
-        for span in input_trace:
-            if span["name"] == "ChatOpenAI":
-                return span["attributes"]["llm.output_messages.0.message.content"]
-            elif span["name"] == "LLMChain":
-                return json.loads(span["attributes"]["output.value"])
-            elif span["name"] == "RetrievalQA":
-                return span["attributes"]["output.value"]
+        if tracer_type == "rag/langchain":
+            for span in input_trace:
+                if span["name"] == "ChatOpenAI":
+                    return span["attributes"]["llm.output_messages.0.message.content"]
+                elif span["name"] == "LLMChain":
+                    return json.loads(span["attributes"]["output.value"])
+                elif span["name"] == "RetrievalQA":
+                    return span["attributes"]["output.value"]
         return None
     
     def get_context(input_trace):
-        for span in input_trace:
-            if span["name"] == "VectorStoreRetriever":
-                return span["attributes"]["retrieval.documents.1.document.content"]
+        if tracer_type == "rag/langchain":
+            for span in input_trace:
+                if span["name"] == "VectorStoreRetriever":
+                    return span["attributes"]["retrieval.documents.1.document.content"]
         return None
         
     prompt = get_prompt(input_trace)
     response = get_response(input_trace)
     context = get_context(input_trace)
     
-    trace_aggregate["tracer_type"] = "langchain"
+    if tracer_type == "rag/langchain":
+        trace_aggregate["tracer_type"] = "langchain"
+    else:
+        trace_aggregate["tracer_type"] = "llamaindex"
+
     trace_aggregate['trace_id'] = trace_id
     trace_aggregate['session_id'] = None
     trace_aggregate["metadata"] = user_details["trace_user_detail"]["metadata"]
@@ -64,7 +71,11 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
     trace_aggregate["data"]["response"] = response
     trace_aggregate["data"]["context"] = context
     
-    additional_metadata = get_additional_metadata(input_trace, custom_model_cost, model_cost)
+    if tracer_type == "rag/langchain":
+        additional_metadata = get_additional_metadata(input_trace, custom_model_cost, model_cost)
+    else:
+        additional_metadata = get_additional_metadata(input_trace, custom_model_cost, model_cost)
+    
     trace_aggregate["metadata"].update(additional_metadata)
     return trace_aggregate, additional_metadata
 
