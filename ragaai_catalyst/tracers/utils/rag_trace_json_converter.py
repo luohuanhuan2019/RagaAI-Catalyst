@@ -15,7 +15,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
     def get_prompt(input_trace):
         if tracer_type == "rag/langchain":
             for span in input_trace:
-                if span["name"] == "ChatOpenAI":
+                if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
                     return span["attributes"]["llm.input_messages.1.message.content"]
 
                 elif span["name"] == "LLMChain":
@@ -27,14 +27,12 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
                 elif span["name"] == "VectorStoreRetriever":
                     return span["attributes"]["input.value"]
                 
-                elif span["name"] == "ChatAnthropic":
-                    return span["attributes"]["llm.input_messages.1.message.content"]
         return None
     
     def get_response(input_trace):
         if tracer_type == "rag/langchain":
             for span in input_trace:
-                if span["name"] == "ChatOpenAI":
+                if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
                     return span["attributes"]["llm.output_messages.0.message.content"]
 
                 elif span["name"] == "LLMChain":
@@ -43,8 +41,6 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
                 elif span["name"] == "RetrievalQA":
                     return span["attributes"]["output.value"]
 
-                elif span["name"] == "ChatAnthropic":
-                    return span["attributes"]["llm.output_messages.0.message.content"]
         return None
     
     def get_context(input_trace):
@@ -93,11 +89,11 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict):
     additional_metadata["tokens"] = {}
     try:
         for span in spans:
-            if span["name"] in ["ChatOpenAI", "ChatAnthropic"]:
+            if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
                 start_time = datetime.fromisoformat(span["start_time"][:-1])  # Remove 'Z' and parse
                 end_time = datetime.fromisoformat(span["end_time"][:-1])    # Remove 'Z' and parse
                 additional_metadata["latency"] = (end_time - start_time).total_seconds()
-                additional_metadata["model_name"] = span["attributes"]["llm.model_name"]
+                additional_metadata["model_name"] = span["attributes"]["llm.model_name"].replace("models/","")
                 additional_metadata["model"] = additional_metadata["model_name"]
                 additional_metadata["tokens"]["prompt"] = span["attributes"]["llm.token_count.prompt"]
                 additional_metadata["tokens"]["completion"] = span["attributes"]["llm.token_count.completion"]
