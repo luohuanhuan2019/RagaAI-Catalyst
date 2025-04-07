@@ -119,7 +119,6 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
         logger.error(f"Error getting additional metadata: {str(e)}")
     
     try:
-        import pdb; pdb.set_trace()
         if custom_model_cost.get(additional_metadata.get('model_name')):
             model_cost_data = custom_model_cost[additional_metadata.get('model_name')]
         else:
@@ -142,85 +141,106 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
 
     return additional_metadata
 
-def num_tokens_from_messages(model="gpt-4o-mini-2024-07-18", prompt_messages=None, response_message=None):
-    """Calculate the number of tokens used by either prompt messages or response message.
-    
-    Args:
-        model: The model name to use for token calculation
-        prompt_messages: List of prompt messages (mutually exclusive with response_message)
-        response_message: Response message from the assistant (mutually exclusive with prompt_messages)
-    
-    Returns:
-        int: Number of tokens in either the prompt or completion
-    
-    Raises:
-        ValueError: If both prompt_messages and response_message are provided or if neither is provided
-    """
-    if (prompt_messages is not None and response_message is not None) or (prompt_messages is None and response_message is None):
-        raise ValueError("Exactly one of prompt_messages or response_message must be provided")
+def num_tokens_from_messages(model, prompt_messages=None, response_message=None):
+    # GPT models
+    if model.startswith("gpt-"):
+        
+        """Calculate the number of tokens used by either prompt messages or response message.
+        
+        Args:
+            model: The model name to use for token calculation
+            prompt_messages: List of prompt messages (mutually exclusive with response_message)
+            response_message: Response message from the assistant (mutually exclusive with prompt_messages)
+        
+        Returns:
+            int: Number of tokens in either the prompt or completion
+        
+        Raises:
+            ValueError: If both prompt_messages and response_message are provided or if neither is provided
+        """
+        if (prompt_messages is not None and response_message is not None) or (prompt_messages is None and response_message is None):
+            raise ValueError("Exactly one of prompt_messages or response_message must be provided")
 
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        logging.warning("Warning: model not found. Using o200k_base encoding.")
-        encoding = tiktoken.get_encoding("o200k_base")
-    
-    if model in {
-        "gpt-3.5-turbo-0125",
-        "gpt-4-0314",
-        "gpt-4-32k-0314",
-        "gpt-4-0613",
-        "gpt-4-32k-0613",
-        "gpt-4o-2024-08-06",
-        "gpt-4o-mini-2024-07-18"
-        }:
-        tokens_per_message = 3
-        tokens_per_name = 1
-    elif "gpt-3.5-turbo" in model:
-        logging.warning("Warning: gpt-3.5-turbo may update over time. Using gpt-3.5-turbo-0125.")
-        return num_tokens_from_messages(model="gpt-3.5-turbo-0125", 
-                                     prompt_messages=prompt_messages, response_message=response_message)
-    elif "gpt-4o-mini" in model:
-        logging.warning("Warning: gpt-4o-mini may update over time. Using gpt-4o-mini-2024-07-18.")
-        return num_tokens_from_messages(model="gpt-4o-mini-2024-07-18",
-                                     prompt_messages=prompt_messages, response_message=response_message)
-    elif "gpt-4o" in model:
-        logging.warning("Warning: gpt-4o may update over time. Using gpt-4o-2024-08-06.")
-        return num_tokens_from_messages(model="gpt-4o-2024-08-06",
-                                     prompt_messages=prompt_messages, response_message=response_message)
-    elif "gpt-4" in model:
-        logging.warning("Warning: gpt-4 may update over time. Using gpt-4-0613.")
-        return num_tokens_from_messages(model="gpt-4-0613",
-                                     prompt_messages=prompt_messages, response_message=response_message)
-    else:
-        raise NotImplementedError(
-            f"""num_tokens_from_messages() is not implemented for model {model}."""
-        )
-    
-    total_tokens = 0
-    
-    if prompt_messages is not None:
-        for message in prompt_messages:
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except KeyError:
+            logging.warning("Warning: model not found. Using o200k_base encoding.")
+            encoding = tiktoken.get_encoding("o200k_base")
+        
+        if model in {
+            "gpt-3.5-turbo-0125",
+            "gpt-4-0314",
+            "gpt-4-32k-0314",
+            "gpt-4-0613",
+            "gpt-4-32k-0613",
+            "gpt-4o-2024-08-06",
+            "gpt-4o-mini-2024-07-18"
+            }:
+            tokens_per_message = 3
+            tokens_per_name = 1
+        elif "gpt-3.5-turbo" in model:
+            logging.warning("Warning: gpt-3.5-turbo may update over time. Using gpt-3.5-turbo-0125.")
+            return num_tokens_from_messages(model="gpt-3.5-turbo-0125", 
+                                        prompt_messages=prompt_messages, response_message=response_message)
+        elif "gpt-4o-mini" in model:
+            logging.warning("Warning: gpt-4o-mini may update over time. Using gpt-4o-mini-2024-07-18.")
+            return num_tokens_from_messages(model="gpt-4o-mini-2024-07-18",
+                                        prompt_messages=prompt_messages, response_message=response_message)
+        elif "gpt-4o" in model:
+            logging.warning("Warning: gpt-4o may update over time. Using gpt-4o-2024-08-06.")
+            return num_tokens_from_messages(model="gpt-4o-2024-08-06",
+                                        prompt_messages=prompt_messages, response_message=response_message)
+        elif "gpt-4" in model:
+            logging.warning("Warning: gpt-4 may update over time. Using gpt-4-0613.")
+            return num_tokens_from_messages(model="gpt-4-0613",
+                                        prompt_messages=prompt_messages, response_message=response_message)
+        else:
+            raise NotImplementedError(
+                f"""num_tokens_from_messages() is not implemented for model {model}."""
+            )
+        
+        total_tokens = 0
+        
+        if prompt_messages is not None:
+            for message in prompt_messages:
+                num_tokens = tokens_per_message
+                for key, value in message.items():
+                    token_count = len(encoding.encode(str(value)))
+                    num_tokens += token_count
+                    if key == "name":
+                        num_tokens += tokens_per_name
+                total_tokens += num_tokens
+            return total_tokens
+        
+        else:  # response_message is not None
             num_tokens = tokens_per_message
+            if isinstance(response_message, dict):
+                message = response_message
+            else:
+                message = {"role": "assistant", "content": response_message}
+                
             for key, value in message.items():
                 token_count = len(encoding.encode(str(value)))
                 num_tokens += token_count
                 if key == "name":
                     num_tokens += tokens_per_name
-            total_tokens += num_tokens
-        return total_tokens
-    
-    else:  # response_message is not None
-        num_tokens = tokens_per_message
-        if isinstance(response_message, dict):
-            message = response_message
-        else:
-            message = {"role": "assistant", "content": response_message}
             
-        for key, value in message.items():
-            token_count = len(encoding.encode(str(value)))
-            num_tokens += token_count
-            if key == "name":
-                num_tokens += tokens_per_name
-        
-        return num_tokens + 3  # Adding the assistant message prefix tokens
+            return num_tokens + 3  # Adding the assistant message prefix tokens
+
+    # Gemini models 
+    elif model.startswith("gemini-"):
+        GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+        client = genai.Client(api_key=GOOGLE_API_KEY)
+
+        if prompt_messages is not None:
+            response = client.models.count_tokens(
+                model=model,
+                contents=prompt_messages,
+            )
+            return response.total_tokens
+        else:
+            response = client.models.count_tokens(
+                model=model,
+                contents=response_message,
+            )
+            return response.total_tokens        
