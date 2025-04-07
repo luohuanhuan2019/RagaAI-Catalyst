@@ -258,32 +258,32 @@ def format_interactions(trace) -> dict:
     interaction_id = 1
 
     try:
-        if 'data' not in trace or not trace['data'][0]["spans"]:
+        if 'data' not in trace or not trace['data'][0].get("spans"):
             return {"workflow": []}
     except Exception as e:
         print(f"Error in checking data or spans: {str(e)}")
 
     try:
-        for span in trace['data'][0]["spans"]:
+        for span in trace['data'][0].get("spans", []):
             # Process agent spans
-            if span['type'] == "agent":
+            if span.get('type') == "agent":
                 # Add agent_start interaction
                 interactions.append(
                     {
                         "id": str(interaction_id),
-                        "span_id": span['id'],
+                        "span_id": span.get('id'),
                         "interaction_type": "agent_call_start",
-                        "name": span['name'],
+                        "name": span.get('name'),
                         "content": None,
-                        "timestamp": span['start_time'],
-                        "error": span['error'],
+                        "timestamp": span.get('start_time'),
+                        "error": span.get('error'),
                     }
                 )
                 interaction_id += 1
 
                 # Process children of agent recursively
-                if "children" in span['data']:
-                    for child in span['data']["children"]:
+                if "children" in span.get('data', {}):
+                    for child in span['data'].get("children", []):
                         interaction_id = process_child_interactions(
                             child, interaction_id, interactions
                         )
@@ -292,29 +292,29 @@ def format_interactions(trace) -> dict:
                 interactions.append(
                     {
                         "id": str(interaction_id),
-                        "span_id": span['id'],
+                        "span_id": span.get('id'),
                         "interaction_type": "agent_call_end",
-                        "name": span['name'],
-                        "content": span['data'].get("output"),
-                        "timestamp": span['end_time'],
-                        "error": span['error'],
+                        "name": span.get('name'),
+                        "content": span.get('data', {}).get("output"),
+                        "timestamp": span.get('end_time'),
+                        "error": span.get('error'),
                     }
                 )
                 interaction_id += 1
 
-            elif span['type'] == "tool":
+            elif span.get('type') == "tool":
                 interactions.append(
                     {
                         "id": str(interaction_id),
-                        "span_id": span['id'],
+                        "span_id": span.get('id'),
                         "interaction_type": "tool_call_start",
-                        "name": span['name'],
+                        "name": span.get('name'),
                         "content": {
-                            "prompt": span['data'].get("input"),
-                            "response": span['data'].get("output"),
+                            "prompt": span.get('data', {}).get("input"),
+                            "response": span.get('data', {}).get("output"),
                         },
-                        "timestamp": span['start_time'],
-                        "error": span['error'],
+                        "timestamp": span.get('start_time'),
+                        "error": span.get('error'),
                     }
                 )
                 interaction_id += 1
@@ -322,31 +322,31 @@ def format_interactions(trace) -> dict:
                 interactions.append(
                     {
                         "id": str(interaction_id),
-                        "span_id": span['id'],
+                        "span_id": span.get('id'),
                         "interaction_type": "tool_call_end",
-                        "name": span['name'],
+                        "name": span.get('name'),
                         "content": {
-                            "prompt": span['data'].get("input"),
-                            "response": span['data'].get("output"),
+                            "prompt": span.get('data', {}).get("input"),
+                            "response": span.get('data', {}).get("output"),
                         },
-                        "timestamp": span['end_time'],
-                        "error": span['error'],
+                        "timestamp": span.get('end_time'),
+                        "error": span.get('error'),
                     }
                 )
                 interaction_id += 1
 
-            elif span['type'] == "llm":
+            elif span.get('type') == "llm":
                 interactions.append(
                     {
                         "id": str(interaction_id),
-                        "span_id": span['id'],
+                        "span_id": span.get('id'),
                         "interaction_type": "llm_call_start",
-                        "name": span['name'],
+                        "name": span.get('name'),
                         "content": {
-                            "prompt": span['data'].get("input"),
+                            "prompt": span.get('data', {}).get("input"),
                         },
-                        "timestamp": span['start_time'],
-                        "error": span['error']
+                        "timestamp": span.get('start_time'),
+                        "error": span.get('error')
                     }
                 )
                 interaction_id += 1
@@ -354,12 +354,12 @@ def format_interactions(trace) -> dict:
                 interactions.append(
                     {
                         "id": str(interaction_id),
-                        "span_id": span['id'],
+                        "span_id": span.get('id'),
                         "interaction_type": "llm_call_end",
-                        "name": span['name'],
-                        "content": {"response": span['data'].get("output")},
-                        "timestamp": span['end_time'],
-                        "error": span['error'],
+                        "name": span.get('name'),
+                        "content": {"response": span.get('data', {}).get("output")},
+                        "timestamp": span.get('end_time'),
+                        "error": span.get('error'),
                     }
                 )
                 interaction_id += 1
@@ -368,12 +368,12 @@ def format_interactions(trace) -> dict:
                 interactions.append(
                     {
                         "id": str(interaction_id),
-                        "span_id": span['id'],
-                        "interaction_type": f"{span['type']}_call_start",
-                        "name": span['name'],
-                        "content": span['data'],
-                        "timestamp": span['start_time'],
-                        "error": span['error'],
+                        "span_id": span.get('id'),
+                        "interaction_type": f"{span.get('type')}_call_start",
+                        "name": span.get('name'),
+                        "content": span.get('data'),
+                        "timestamp": span.get('start_time'),
+                        "error": span.get('error'),
                     }
                 )
                 interaction_id += 1
@@ -381,12 +381,12 @@ def format_interactions(trace) -> dict:
                 interactions.append(
                     {
                         "id": str(interaction_id),
-                        "span_id": span['id'],
-                        "interaction_type": f"{span['type']}_call_end",
-                        "name": span['name'],
-                        "content": span['data'],
-                        "timestamp": span['end_time'],
-                        "error": span['error'],
+                        "span_id": span.get('id'),
+                        "interaction_type": f"{span.get('type')}_call_end",
+                        "name": span.get('name'),
+                        "content": span.get('data'),
+                        "timestamp": span.get('end_time'),
+                        "error": span.get('error'),
                     }
                 )
                 interaction_id += 1
@@ -396,11 +396,11 @@ def format_interactions(trace) -> dict:
                 for span_interaction in span['interactions']:
                     interaction = {}
                     interaction["id"] = str(interaction_id)
-                    interaction["span_id"] = span['id']
-                    interaction["interaction_type"] = span_interaction['type']
-                    interaction["content"] = span_interaction['content']
-                    interaction["timestamp"] = span_interaction['timestamp']
-                    interaction["error"] = span['error']
+                    interaction["span_id"] = span.get('id')
+                    interaction["interaction_type"] = span_interaction.get('type')
+                    interaction["content"] = span_interaction.get('content')
+                    interaction["timestamp"] = span_interaction.get('timestamp')
+                    interaction["error"] = span.get('error')
                     interactions.append(interaction)
                     interaction_id += 1
 
@@ -408,7 +408,7 @@ def format_interactions(trace) -> dict:
                 for span_network_call in span['network_calls']:
                     network_call = {}
                     network_call["id"] = str(interaction_id)
-                    network_call["span_id"] = span['id']
+                    network_call["span_id"] = span.get('id')
                     network_call["interaction_type"] = "network_call"
                     network_call["name"] = None
                     network_call["content"] = {
@@ -435,7 +435,7 @@ def format_interactions(trace) -> dict:
     try:
         # Sort interactions by timestamp
         sorted_interactions = sorted(
-            interactions, key=lambda x: x["timestamp"] if x["timestamp"] else ""
+            interactions, key=lambda x: x.get("timestamp") if x.get("timestamp") else ""
         )
     except Exception as e:
         print(f"Error in sorting interactions: {str(e)}")
