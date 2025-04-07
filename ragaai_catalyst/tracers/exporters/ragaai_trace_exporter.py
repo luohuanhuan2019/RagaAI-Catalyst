@@ -82,28 +82,62 @@ class RAGATraceExporter(SpanExporter):
 
     def prepare_trace(self, spans, trace_id):
         try:
-            ragaai_trace = convert_json_format(spans, self.custom_model_cost)   
-            interactions = format_interactions(ragaai_trace)         
-            ragaai_trace["workflow"] = interactions['workflow']
-
-            # Add source code hash
-            hash_id, zip_path = zip_list_of_unique_files(
-                self.files_to_zip, output_dir=self.tmp_dir
-            )
-
-            ragaai_trace["metadata"]["system_info"] = asdict(self.system_monitor.get_system_info())
-            ragaai_trace["metadata"]["resources"] = asdict(self.system_monitor.get_resources())
-            ragaai_trace["metadata"]["system_info"]["source_code"] = hash_id
-
-            ragaai_trace["data"][0]["start_time"] = ragaai_trace["start_time"]
-            ragaai_trace["data"][0]["end_time"] = ragaai_trace["end_time"]
-
-            ragaai_trace["project_name"] = self.project_name
+            try:
+                ragaai_trace = convert_json_format(spans, self.custom_model_cost)   
+            except Exception as e:
+                print(f"Error in convert_json_format function: {trace_id}: {e}")
+                return None
             
-            # Save the trace_json 
-            trace_file_path = os.path.join(self.tmp_dir, f"{trace_id}.json")
-            with open(trace_file_path, "w") as file:
-                json.dump(ragaai_trace, file, cls=TracerJSONEncoder, indent=2)
+            try:
+                interactions = format_interactions(ragaai_trace)         
+                ragaai_trace["workflow"] = interactions['workflow']
+            except Exception as e:
+                print(f"Error in format_interactions function: {trace_id}: {e}")
+                return None
+
+            try:
+                # Add source code hash
+                hash_id, zip_path = zip_list_of_unique_files(
+                    self.files_to_zip, output_dir=self.tmp_dir
+                )
+            except Exception as e:
+                print(f"Error in zip_list_of_unique_files function: {trace_id}: {e}")
+                return None
+
+            try:
+                ragaai_trace["metadata"]["system_info"] = asdict(self.system_monitor.get_system_info())
+                ragaai_trace["metadata"]["resources"] = asdict(self.system_monitor.get_resources())
+            except Exception as e:
+                print(f"Error in get_system_info or get_resources function: {trace_id}: {e}")
+                return None
+
+            try:
+                ragaai_trace["metadata"]["system_info"]["source_code"] = hash_id
+            except Exception as e:
+                print(f"Error in adding source code hash: {trace_id}: {e}")
+                return None
+
+            try:
+                ragaai_trace["data"][0]["start_time"] = ragaai_trace["start_time"]
+                ragaai_trace["data"][0]["end_time"] = ragaai_trace["end_time"]
+            except Exception as e:
+                print(f"Error in adding start_time or end_time: {trace_id}: {e}")
+                return None
+
+            try:
+                ragaai_trace["project_name"] = self.project_name
+            except Exception as e:
+                print(f"Error in adding project name: {trace_id}: {e}")
+                return None
+            
+            try:
+                # Save the trace_json 
+                trace_file_path = os.path.join(self.tmp_dir, f"{trace_id}.json")
+                with open(trace_file_path, "w") as file:
+                    json.dump(ragaai_trace, file, cls=TracerJSONEncoder, indent=2)
+            except Exception as e:
+                print(f"Error in saving trace json: {trace_id}: {e}")
+                return None
 
             return {
                 'trace_file_path': trace_file_path,
@@ -111,7 +145,7 @@ class RAGATraceExporter(SpanExporter):
                 'hash_id': hash_id
             }
         except Exception as e:
-            logger.error(f"Error converting trace {trace_id}: {str(e)}")
+            print(f"Error converting trace {trace_id}: {str(e)}")
             return None
 
     def upload_trace(self, ragaai_trace_details, trace_id):
