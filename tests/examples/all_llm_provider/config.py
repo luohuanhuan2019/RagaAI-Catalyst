@@ -5,6 +5,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from ragaai_catalyst import RagaAICatalyst, init_tracing
 from ragaai_catalyst.tracers import Tracer
 
+from dotenv import load_dotenv
+load_dotenv()
+
 def initialize_tracing():
     catalyst = RagaAICatalyst(
         access_key=os.getenv("CATALYST_ACCESS_KEY"),

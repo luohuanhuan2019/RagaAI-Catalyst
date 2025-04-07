@@ -15,6 +15,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
 
 from dotenv import load_dotenv
+load_dotenv()
 from ragaai_catalyst import RagaAICatalyst, init_tracing
 from ragaai_catalyst.tracers import Tracer
 
@@ -30,7 +31,6 @@ tracer = Tracer(
     dataset_name=os.getenv('DATASET_NAME'),
     tracer_type="agentic/llamaindex",
 )
-load_dotenv()
 
 init_tracing(catalyst=catalyst, tracer=tracer)
 

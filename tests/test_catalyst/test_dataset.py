@@ -12,18 +12,18 @@ from ragaai_catalyst import Dataset,RagaAICatalyst
 
 @pytest.fixture
 def base_url():
-    return "https://catalyst.raga.ai/api"
+    return os.getenv("CATALYST_ACCESS_KEY")
 
 @pytest.fixture
 def access_keys():
     return {
-        "access_key": os.getenv("RAGAAI_CATALYST_ACCESS_KEY"),
-        "secret_key": os.getenv("RAGAAI_CATALYST_SECRET_KEY")}
+        "access_key": os.getenv("CATALYST_ACCESS_KEY"),
+        "secret_key": os.getenv("CATALYST_SECRET_KEY")}
 
 @pytest.fixture
 def dataset(base_url, access_keys):
     """Create evaluation instance with specific project and dataset"""
-    os.environ["RAGAAI_CATALYST_BASE_URL"] = base_url
+    os.environ["CATALYST_BASE_URL"] = base_url
     catalyst = RagaAICatalyst(
         access_key=access_keys["access_key"],
         secret_key=access_keys["secret_key"]

@@ -13,9 +13,9 @@ from ragaai_catalyst import RagaAICatalyst
 @pytest.fixture
 def mock_env_vars():
     original_environ = os.environ.copy()
-    RAGAAI_CATALYST_ACCESS_KEY = os.getenv("RAGAAI_CATALYST_ACCESS_KEY")
-    RAGAAI_CATALYST_SECRET_KEY = os.getenv("RAGAAI_CATALYST_SECRET_KEY")
-    RAGAAI_CATALYST_BASE_URL = os.getenv("RAGAAI_CATALYST_BASE_URL")
+    RAGAAI_CATALYST_ACCESS_KEY = os.getenv("CATALYST_ACCESS_KEY")
+    RAGAAI_CATALYST_SECRET_KEY = os.getenv("CATALYST_SECRET_KEY")
+    RAGAAI_CATALYST_BASE_URL = os.getenv("CATALYST_BASE_URL")
     
     yield
     
@@ -26,8 +26,8 @@ def mock_env_vars():
 def raga_catalyst(mock_env_vars):
     with patch('ragaai_catalyst.RagaAICatalyst.get_token', return_value='test_token'):
         catalyst = RagaAICatalyst(
-            os.getenv("RAGAAI_CATALYST_ACCESS_KEY"),  
-            os.getenv("RAGAAI_CATALYST_SECRET_KEY")  
+            os.getenv("CATALYST_ACCESS_KEY"),  
+            os.getenv("CATALYST_SECRET_KEY")  
         )
     return catalyst
 
@@ -35,9 +35,9 @@ def raga_catalyst(mock_env_vars):
 
 def test_project_use_cases():
         catalyst = RagaAICatalyst(
-            access_key=os.getenv("RAGAAI_CATALYST_ACCESS_KEY"),
-            secret_key=os.getenv("RAGAAI_CATALYST_SECRET_KEY"),
-            base_url=os.getenv("RAGAAI_CATALYST_BASE_URL")
+            access_key=os.getenv("CATALYST_ACCESS_KEY"),
+            secret_key=os.getenv("CATALYST_SECRET_KEY"),
+            base_url=os.getenv("CATALYST_BASE_URL")
         )
         use_case = catalyst.project_use_cases()
         assert use_case ==['Chatbot', 'Text2SQL', 'Q/A', 'Code Generation', 'Others']
@@ -45,9 +45,9 @@ def test_project_use_cases():
 
 def test_list_project():
         catalyst = RagaAICatalyst(
-            access_key=os.getenv("RAGAAI_CATALYST_ACCESS_KEY"),
-            secret_key=os.getenv("RAGAAI_CATALYST_SECRET_KEY"),
-            base_url=os.getenv("RAGAAI_CATALYST_BASE_URL")
+            access_key=os.getenv("CATALYST_ACCESS_KEY"),
+            secret_key=os.getenv("CATALYST_SECRET_KEY"),
+            base_url=os.getenv("CATALYST_BASE_URL")
         )
         use_case = catalyst.list_projects()
         assert use_case is not None  # Check if the result is not None
@@ -56,9 +56,9 @@ def test_list_project():
 def test_existing_projectname():
         with pytest.raises(ValueError, match="already exists. Please choose a different name."):
             catalyst = RagaAICatalyst(
-                access_key=os.getenv("RAGAAI_CATALYST_ACCESS_KEY"),
-                secret_key=os.getenv("RAGAAI_CATALYST_SECRET_KEY"),
-                base_url=os.getenv("RAGAAI_CATALYST_BASE_URL")
+                access_key=os.getenv("CATALYST_ACCESS_KEY"),
+                secret_key=os.getenv("CATALYST_SECRET_KEY"),
+                base_url=os.getenv("CATALYST_BASE_URL")
             )
             project = catalyst.create_project(
                 project_name="prompt_metric_dataset3",
@@ -67,7 +67,7 @@ def test_existing_projectname():
 
 def test_initialization_missing_credentials():
     """Test initialization with missing credentials"""
-    with pytest.raises(ValueError, match="RAGAAI_CATALYST_ACCESS_KEY and RAGAAI_CATALYST_SECRET_KEY environment variables must be set"):
+    with pytest.raises(ValueError, match="CATALYST_ACCESS_KEY and CATALYST_SECRET_KEY environment variables must be set"):
         RagaAICatalyst('', '')
 
 @patch('requests.post')
@@ -185,15 +185,15 @@ def test_initialization_invalid_credentials():
     """Test initialization with invalid credentials"""
     with pytest.raises(Exception, match="Authentication failed. Invalid credentials provided."):
         RagaAICatalyst(
-            access_key=os.getenv("RAGAAI_CATALYST_ACCESS_KEY")+"a",
-            secret_key=os.getenv("RAGAAI_CATALYST_SECRET_KEY"),
-            base_url=os.getenv("RAGAAI_CATALYST_BASE_URL")
+            access_key=os.getenv("CATALYST_ACCESS_KEY")+"a",
+            secret_key=os.getenv("CATALYST_SECRET_KEY"),
+            base_url=os.getenv("CATALYST_BASE_URL")
         )
 
 def test_initialization_invalid_base_url():
     with pytest.raises(ConnectionError, match="The provided base_url is not accessible. Please re-check the base_url."):
         RagaAICatalyst(
-            access_key=os.getenv("RAGAAI_CATALYST_ACCESS_KEY"),
-            secret_key=os.getenv("RAGAAI_CATALYST_SECRET_KEY"),
-            base_url=os.getenv("RAGAAI_CATALYST_BASE_URL") +"a",
+            access_key=os.getenv("CATALYST_ACCESS_KEY"),
+            secret_key=os.getenv("CATALYST_SECRET_KEY"),
+            base_url=os.getenv("CATALYST_BASE_URL") +"a",
         )

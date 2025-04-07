@@ -9,13 +9,13 @@ dotenv.load_dotenv()
 
 @pytest.fixture
 def base_url():
-    return "https://catalyst.raga.ai/api"
+    return os.getenv("CATALYST_BASE_URL")
 
 @pytest.fixture
 def access_keys():
     return {
-        "access_key": os.getenv("RAGAAI_CATALYST_ACCESS_KEY"),
-        "secret_key": os.getenv("RAGAAI_CATALYST_SECRET_KEY")}
+        "access_key": os.getenv("CATALYST_ACCESS_KEY"),
+        "secret_key": os.getenv("CATALYST_SECRET_KEY")}
 
 
 @pytest.fixture

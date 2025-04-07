@@ -18,8 +18,8 @@ class RagaAICatalyst:
         self.access_key = access_key
         self.secret_key = secret_key
         self.api_keys = api_keys or {}
-        os.environ["RAGAAI_CATALYST_ACCESS_KEY"] = access_key
-        os.environ["RAGAAI_CATALYST_SECRET_KEY"] = secret_key
+        os.environ["CATALYST_ACCESS_KEY"] = access_key
+        os.environ["CATALYST_SECRET_KEY"] = secret_key
 
         RagaAICatalyst.BASE_URL = base_url or "https://catalyst.raga.ai/api"
         self.get_token()

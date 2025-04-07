@@ -1,6 +1,6 @@
 import os
-import sys
-sys.path.append('/Users/ragaai_user/work/ragaai-catalyst/')
+# import sys
+# sys.path.append('/Users/ragaai_user/work/ragaai-catalyst/')
 import time
 import json
 import pandas as pd
@@ -26,9 +26,9 @@ import pytest
 
 
 catalyst = RagaAICatalyst(
-    access_key=os.getenv("RAGAAICATALYST_ACCESS_KEY"),
-    secret_key=os.getenv("RAGAAICATALYST_SECRET_KEY"),
-    base_url=os.getenv("RAGAAICATALYST_BASE_URL")
+    access_key=os.getenv("CATALYST_ACCESS_KEY"),
+    secret_key=os.getenv("CATALYST_SECRET_KEY"),
+    base_url=os.getenv("CATALYST_BASE_URL")
 )
 
 def create_rag_pipeline(pdf_path):
@@ -57,7 +57,7 @@ def create_rag_pipeline(pdf_path):
 def run_pipeline():
     global tracer
     tracer = Tracer(
-        project_name="langchain_tracing_test",
+        project_name="testing_v",
         dataset_name="test_00",
         tracer_type='langchain',
         metadata={
@@ -73,7 +73,7 @@ def run_pipeline():
 
     tracer.start()
 
-    pdf_path = "test/test_catalyst/ai document_061023_2.pdf"
+    pdf_path = "tests/examples/langchain/medical_rag/data/medical_texts/handbook1.pdf"
 
     qa_chain = create_rag_pipeline(pdf_path)
     

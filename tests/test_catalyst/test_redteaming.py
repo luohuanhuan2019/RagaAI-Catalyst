@@ -1,10 +1,10 @@
-import sys
+# import sys
 from unittest.mock import Mock
 
 import pandas as pd
 import pytest
 
-sys.path.append("/Users/ragaai_user/Documents/RagaAI-Catalyst")
+# sys.path.append("/Users/ragaai_user/Documents/RagaAI-Catalyst")
 from ragaai_catalyst import RedTeaming
 
 
