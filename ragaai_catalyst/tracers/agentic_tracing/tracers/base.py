@@ -158,7 +158,6 @@ class BaseTracer:
         if not callable(post_processor_func):
             raise TypeError("post_processor_func must be a callable")
         self.post_processor = post_processor_func
-        print("Post processor registered in base")
         logger.debug("Post-processor function registered successfully in BaseTracer")
 
     def start(self):
@@ -333,7 +332,6 @@ class BaseTracer:
             ensure_uploader_running()
 
             logger.debug("Base URL used for uploading: {}".format(self.base_url))
-            
             # Submit to background process for uploading using futures
             self.upload_task_id = submit_upload_task(
                 filepath=filepath,

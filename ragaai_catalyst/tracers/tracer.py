@@ -385,8 +385,11 @@ class Tracer(AgenticTracing):
         self.post_processor = post_processor_func
         # Register in parent AgenticTracing class
         super().register_post_processor(post_processor_func)
-        print("Setting registered post process as: ",post_processor_func)
-        logger.debug("Post-processor function registered successfully")
+        # Update DynamicTraceExporter's post-processor if it exists
+        if hasattr(self, 'dynamic_exporter'):
+            self.dynamic_exporter._exporter.post_processor = post_processor_func
+            self.dynamic_exporter._post_processor = post_processor_func
+        logger.info("Registered post process as: "+str(post_processor_func))
 
 
     def set_dataset_name(self, dataset_name):
@@ -782,7 +785,8 @@ class Tracer(AgenticTracing):
             dataset_name=self.dataset_name,
             user_details=self.user_details,
             base_url=self.base_url,
-            custom_model_cost=self.model_custom_cost
+            custom_model_cost=self.model_custom_cost,
+            post_processor= self.post_processor
         )
         
         # Set up tracer provider
