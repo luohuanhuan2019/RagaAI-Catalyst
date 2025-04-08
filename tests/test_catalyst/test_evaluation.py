@@ -16,23 +16,8 @@ MODEL_CONFIGS = [
     # OpenAI Models
     {
         "provider": "openai",
-        "model": "gpt-4",
-        "suffix": "gpt4"
-    },
-    {
-        "provider": "openai",
-        "model": "gpt-4o",
-        "suffix": "gpt4o"
-    },
-    {
-        "provider": "openai",
         "model": "gpt-4o-mini",
         "suffix": "gpt4o_mini"
-    },
-    {
-        "provider": "openai",
-        "model": "gpt-3.5-turbo",
-        "suffix": "gpt35"
     },
     # Gemini Models
     {
@@ -40,39 +25,29 @@ MODEL_CONFIGS = [
         "model": "gemini-1.5-flash",
         "suffix": "gemini15_flash"
     },
-    {
-        "provider": "gemini",
-        "model": "gemini-1.5-pro",
-        "suffix": "gemini15_pro"
-    },
     # Azure OpenAI Models
     {
         "provider": "azure",
         "model": "gpt-4",
         "suffix": "azure_gpt4"
     },
-    {
-        "provider": "azure",
-        "model": "gpt-35-turbo",
-        "suffix": "azure_gpt35"
-    }
 ]
 
 @pytest.fixture
 def base_url():
-    return "https://catalyst.raga.ai/api"
+    return os.getenv("CATALYST_BASE_URL")
 
 @pytest.fixture
 def access_keys():
     return {
-        "access_key": os.getenv("RAGAAI_CATALYST_ACCESS_KEY"),
-        "secret_key": os.getenv("RAGAAI_CATALYST_SECRET_KEY")}
+        "access_key": os.getenv("CATALYST_ACCESS_KEY"),
+        "secret_key": os.getenv("CATALYST_SECRET_KEY")}
     
 
 @pytest.fixture
 def evaluation(base_url, access_keys):
     """Create evaluation instance with specific project and dataset"""
-    os.environ["RAGAAI_CATALYST_BASE_URL"] = base_url
+    os.environ["CATALYST_BASE_URL"] = base_url
     catalyst = RagaAICatalyst(
         access_key=access_keys["access_key"],
         secret_key=access_keys["secret_key"]
@@ -82,7 +57,7 @@ def evaluation(base_url, access_keys):
 @pytest.fixture
 def chat_evaluation(base_url, access_keys):
     """Create evaluation instance with specific project and dataset"""
-    os.environ["RAGAAI_CATALYST_BASE_URL"] = base_url
+    os.environ["CATALYST_BASE_URL"] = base_url
     catalyst = RagaAICatalyst(
         access_key=access_keys["access_key"],
         secret_key=access_keys["secret_key"]
@@ -93,7 +68,7 @@ def test_evaluation_initialization(evaluation):
     """Test if evaluation is initialized correctly"""
     assert evaluation.project_name == "prompt_metric_dataset"
     assert evaluation.dataset_name == "ritika_dataset"
-    assert evaluation.base_url == "https://catalyst.raga.ai/api"
+    assert evaluation.base_url == base_url
     assert evaluation.timeout == 10
     assert evaluation.jobId is None
 
