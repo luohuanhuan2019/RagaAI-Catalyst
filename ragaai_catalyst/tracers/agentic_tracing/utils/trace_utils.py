@@ -263,8 +263,9 @@ def format_interactions(trace) -> dict:
     except Exception as e:
         print(f"Error in checking data or spans: {str(e)}")
 
-    try:
-        for span in trace['data'][0].get("spans", []):
+
+    for span in trace['data'][0].get("spans", []):
+        try:
             # Process agent spans
             if span.get('type') == "agent":
                 # Add agent_start interaction
@@ -427,11 +428,10 @@ def format_interactions(trace) -> dict:
                     network_call["error"] = span_network_call.get("error")
                     interactions.append(network_call)
                     interaction_id += 1
-
-    except Exception as e:
-        print(f"Error in processing spans: {str(e)}")
         
-
+        except Exception as e:
+            logger.error(f"Error processing span: {e}")
+            continue
     try:
         # Sort interactions by timestamp
         sorted_interactions = sorted(
