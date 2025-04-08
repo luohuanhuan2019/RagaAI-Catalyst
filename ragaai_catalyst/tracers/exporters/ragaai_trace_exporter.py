@@ -56,7 +56,7 @@ class RAGATraceExporter(SpanExporter):
                     except Exception as e:
                         raise Exception(f"Error deleting trace: {e}")
             except Exception as e:
-                logger.error(f"Error processing span: {e}")
+                logger.warning(f"Error processing span: {e}")
                 continue
 
         return SpanExportResult.SUCCESS

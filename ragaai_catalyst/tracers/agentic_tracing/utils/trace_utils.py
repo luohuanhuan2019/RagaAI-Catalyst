@@ -430,7 +430,7 @@ def format_interactions(trace) -> dict:
                     interaction_id += 1
         
         except Exception as e:
-            logger.error(f"Error processing span: {e}")
+            logger.warning(f"Error processing span: {e}")
             continue
     try:
         # Sort interactions by timestamp
