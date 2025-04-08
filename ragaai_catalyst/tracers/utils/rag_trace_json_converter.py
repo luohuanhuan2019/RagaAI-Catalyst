@@ -2,6 +2,7 @@ import json
 from litellm import model_cost
 import logging
 import os
+import re
 from datetime import datetime
 import tiktoken
 
@@ -143,27 +144,49 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
 
 def num_tokens_from_messages(model, message):
     # GPT models
-    if model.startswith("gpt-"):
+    if re.match(r'^gpt-', model):
+        """Check if the model is any GPT model (pattern: ^gpt-)
+        This matches any model name that starts with 'gpt-'
+        """
         def num_tokens_from_string(string: str, encoding_name: str) -> int:
             """Returns the number of tokens in a text string."""
             encoding = tiktoken.get_encoding(encoding_name)
             num_tokens = len(encoding.encode(string))
             return num_tokens
         
-        if model.startswith("gpt-4o"):
+        if re.match(r'^gpt-4o.*', model):
+            """Check for GPT-4 Optimized models (pattern: ^gpt-4o.*)
+            Examples that match:
+            - gpt-4o
+            - gpt-4o-mini
+            - gpt-4o-2024-08-06
+            The .* allows for any characters after 'gpt-4o'
+            """
             encoding_name = "o200k_base"
             return num_tokens_from_string(message, encoding_name)
         
-        elif model.startswith("gpt-4") or model.startswith("gpt-3.5"):
+        elif re.match(r'^gpt-(4|3\.5).*', model):
+            """Check for GPT-4 and GPT-3.5 models (pattern: ^gpt-(4|3\.5).*)
+            Uses cl100k_base encoding for GPT-4 and GPT-3.5 models
+            Examples that match:
+            - gpt-4
+            - gpt-4-turbo
+            - gpt-4-2024-08-06
+            - gpt-3.5-turbo
+            - gpt-3.5-turbo-16k
+            """
             encoding_name = "cl100k_base"
             return num_tokens_from_string(message, encoding_name)
         
         else:
-            return num_tokens_from_string(message, encoding_name="cl100k_base")
+            """Default case for any other GPT models
+            Uses o200k_base encoding as the default tokenizer
+            """
+            return num_tokens_from_string(message, encoding_name="o200k_base")
         
 
     # Gemini models 
-    elif model.startswith("gemini-"):
+    elif re.match(r'^gemini-', model):
         GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
         client = genai.Client(api_key=GOOGLE_API_KEY)
 
