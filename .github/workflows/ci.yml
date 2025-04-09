@@ -106,12 +106,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const testResults = ${{ needs.test.outputs.test_summary }}
-            const { issue: { number: issue_number }, repo: { owner, repo } } = context;
+            var testResults = "${{ needs.test.outputs.test_summary }}";
+            var issue_number = context.issue.number;
+            var owner = context.repo.owner;
+            var repo = context.repo.repo;
             
             github.rest.issues.createComment({
-              issue_number,
-              owner,
-              repo,
+              issue_number: issue_number,
+              owner: owner,
+              repo: repo,
               body: testResults
             });
