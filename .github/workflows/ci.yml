@@ -20,15 +20,15 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
-            curl -LsSf https://astral.sh/uv/install.ps1 -o install.ps1
-            powershell -ExecutionPolicy Bypass -File install.ps1
-            export PATH="$HOME/.cargo/bin:$PATH"
+            python -m pip install --upgrade pip
+            pip install ruff
+            pip install -e ".[dev]"
           else
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH="$HOME/.cargo/bin:$PATH"
+            uv pip install --system ruff
+            uv pip install --system -e ".[dev]"
           fi
-          uv pip install --system ruff
-          uv pip install --system -e ".[dev]"
       - name: Format and lint with Ruff
         run: |
           # First run format to fix formatting issues
@@ -57,15 +57,15 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
-            curl -LsSf https://astral.sh/uv/install.ps1 -o install.ps1
-            powershell -ExecutionPolicy Bypass -File install.ps1
-            export PATH="$HOME/.cargo/bin:$PATH"
+            python -m pip install --upgrade pip
+            pip install pytest pytest-cov
+            pip install -e ".[dev]"
           else
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH="$HOME/.cargo/bin:$PATH"
+            uv pip install --system pytest pytest-cov
+            uv pip install --system -e ".[dev]"
           fi
-          uv pip install --system pytest pytest-cov
-          uv pip install --system -e ".[dev]"
       - name: Test with pytest
         id: pytest
         env:
