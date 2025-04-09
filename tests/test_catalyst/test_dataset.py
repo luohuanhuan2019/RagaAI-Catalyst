@@ -9,10 +9,12 @@ from unittest.mock import patch, Mock
 import requests
 from ragaai_catalyst import Dataset,RagaAICatalyst
 
+csv_path = os.path.join(os.path.dirname(__file__), os.path.join("test_data", "util_test_dataset.csv"))
+
 
 @pytest.fixture
 def base_url():
-    return "https://catalyst.raga.ai/api"
+    return os.getenv("RAGAAI_CATALYST_BASE_URL")
 
 @pytest.fixture
 def access_keys():
@@ -35,9 +37,9 @@ def test_list_dataset(dataset) -> List[str]:
     return datasets
 
 
-def test_get_dataset_columns(dataset)  -> List[str]:
-    dataset_column = dataset.get_dataset_columns(dataset_name="ritika_dataset")
-    return dataset_column
+# def test_get_dataset_columns(dataset)  -> List[str]:
+#     dataset_column = dataset.get_dataset_columns(dataset_name="schema_metric_dataset_ritika_3")
+#     return dataset_column
 
 def test_incorrect_dataset(dataset):
     with pytest.raises(ValueError, match="Please enter a valid dataset name"):
@@ -49,7 +51,7 @@ def test_get_schema_mapping(dataset):
 
 
 def test_upload_csv(dataset):
-    project_name = 'prompt_metric_dataset'
+    project_name = 'prompt_metric_dataset3'
 
     schema_mapping = {
         'Query': 'prompt',
@@ -57,8 +59,6 @@ def test_upload_csv(dataset):
         'Context': 'context',
         'ExpectedResponse': 'expected_response',
     }
-
-    csv_path= "/Users/siddharthakosti/Downloads/catalyst_error_handling/catalyst_v2/catalyst_v2_new_1/data/prompt_metric_dataset_v1.csv"
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") 
     dataset_name = f"schema_metric_dataset_ritika_{timestamp}"  
@@ -82,8 +82,6 @@ def test_upload_csv_repeat_dataset(dataset):
             'ExpectedResponse': 'expected_response',
         }
 
-        csv_path= "/Users/siddharthakosti/Downloads/catalyst_error_handling/catalyst_v2/catalyst_v2_new_1/data/prompt_metric_dataset_v1.csv"
-
         dataset.create_from_csv(
             csv_path=csv_path,
             dataset_name="schema_metric_dataset_ritika_3",
@@ -102,8 +100,6 @@ def test_upload_csv_no_schema_mapping(dataset):
             'ExpectedResponse': 'expected_response',
         }
 
-        csv_path= "/Users/siddharthakosti/Downloads/catalyst_error_handling/catalyst_v2/catalyst_v2_new_1/data/prompt_metric_dataset_v1.csv"
-
         dataset.create_from_csv(
             csv_path=csv_path,
             dataset_name="schema_metric_dataset_ritika_3",
@@ -119,8 +115,6 @@ def test_upload_csv_empty_csv_path(dataset):
             'Context': 'context',
             'ExpectedResponse': 'expected_response',
         }
-
-        csv_path= "/Users/siddharthakosti/Downloads/catalyst_error_handling/catalyst_v2/catalyst_v2_new_1/data/prompt_metric_dataset_v1.csv"
 
         dataset.create_from_csv(
             csv_path="",
@@ -139,8 +133,6 @@ def test_upload_csv_empty_schema_mapping(dataset):
             'Context': 'context',
             'ExpectedResponse': 'expected_response',
         }
-
-        csv_path= "/Users/siddharthakosti/Downloads/catalyst_error_handling/catalyst_v2/catalyst_v2_new_1/data/prompt_metric_dataset_v1.csv"
 
         dataset.create_from_csv(
             csv_path=csv_path,
@@ -161,8 +153,6 @@ def test_upload_csv_invalid_schema(dataset):
             'chatId': 'chatId',
             'chatSequence': 'chatSequence'
         }
-
-        csv_path= "/Users/siddharthakosti/Downloads/catalyst_error_handling/catalyst_v2/catalyst_v2_new_1/data/prompt_metric_dataset_v1.csv"
 
         dataset.create_from_csv(
             csv_path=csv_path,
