@@ -95,18 +95,3 @@ jobs:
           cat test-output.txt | grep -E "collected|PASSED|FAILED|ERROR|SKIPPED" >> $GITHUB_OUTPUT
           echo '```' >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
-  post-results:
-    if: always() && github.event_name == 'pull_request'
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create results file
-        run: |
-          echo "${{ needs.test.outputs.test_summary }}" > test-results.md
-      
-      - name: Post test results to PR
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: test-results
-          path: test-results.md
