@@ -52,8 +52,8 @@ RAGAAI_PROJECT_NAME=prompt_metric_dataset # use this dataset only
 RAGAAI_DATASET_NAME=pytest_dataset
 
 # Other APIs
-TAVILY_API_KEY=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
-SERPERDEV_API_KEY=12156d53ace04324ab935a67e356cce4c9984a84
+TAVILY_API_KEY=''
+SERPERDEV_API_KEY=''
 ```
 
 
