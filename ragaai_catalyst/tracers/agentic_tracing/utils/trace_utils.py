@@ -430,7 +430,7 @@ def format_interactions(trace) -> dict:
                     interaction_id += 1
         
         except Exception as e:
-            logger.warning(f"Found issue while processing span, skipping")
+            # logger.warning(f"Found issue while processing span, skipping")
             continue
     try:
         # Sort interactions by timestamp
