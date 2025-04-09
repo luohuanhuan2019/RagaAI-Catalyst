@@ -83,7 +83,6 @@ ignore_missing_imports = true
 strict = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=ragaai_catalyst"
 testpaths = ["tests"]
 
 [tool.coverage.run]

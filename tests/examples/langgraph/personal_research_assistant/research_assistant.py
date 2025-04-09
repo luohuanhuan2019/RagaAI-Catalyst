@@ -22,14 +22,14 @@ from ragaai_catalyst.tracers import Tracer
 def initialize_catalyst():
     """Initialize RagaAI Catalyst using environment credentials."""
     catalyst = RagaAICatalyst(
-        access_key=os.getenv('CATALYST_ACCESS_KEY'), 
-        secret_key=os.getenv('CATALYST_SECRET_KEY'), 
-        base_url=os.getenv('CATALYST_BASE_URL')
+        access_key=os.getenv('RAGAAI_CATALYST_ACCESS_KEY'), 
+        secret_key=os.getenv('RAGAAI_CATALYST_SECRET_KEY'), 
+        base_url=os.getenv('RAGAAI_CATALYST_BASE_URL')
     )
     
     tracer = Tracer(
-        project_name='testing_v',
-        dataset_name='langgraph_vv',
+        project_name=os.getenv('RAGAAI_PROJECT_NAME'),
+        dataset_name=os.getenv('RAGAAI_DATASET_NAME'),
         tracer_type="agentic/langgraph",
     )
     
