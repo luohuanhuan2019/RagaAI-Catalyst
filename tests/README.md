@@ -4,6 +4,7 @@
 This test suite validates the functionality of RagaAI Catalyst using pytest. It includes:
 - Unit tests for core components
 - Integration tests for key workflows
+- Tests different LLM provider
 - Automated test reporting capabilities
 
 ## Setup Conda Environment
@@ -67,8 +68,10 @@ SERPERDEV_API_KEY=12156d53ace04324ab935a67e356cce4c9984a84
     To run all tests and generate a comprehensive report:
     ```bash
     python 'RagaAI-Catalyst/tests/run_pytest_and_print_and_save_results.py'
+    ```
 
     ![Table_Result](table_result.png)
+
 
 
 
