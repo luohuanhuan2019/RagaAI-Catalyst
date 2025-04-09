@@ -27,8 +27,8 @@ jobs:
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH="$HOME/.cargo/bin:$PATH"
           fi
-          uv pip install ruff
-          uv pip install -e ".[dev]"
+          uv pip install --system ruff
+          uv pip install --system -e ".[dev]"
       - name: Format and lint with Ruff
         run: |
           # First run format to fix formatting issues
@@ -64,8 +64,8 @@ jobs:
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH="$HOME/.cargo/bin:$PATH"
           fi
-          uv pip install pytest pytest-cov
-          uv pip install -e ".[dev]"
+          uv pip install --system pytest pytest-cov
+          uv pip install --system -e ".[dev]"
       - name: Test with pytest
         id: pytest
         env:
