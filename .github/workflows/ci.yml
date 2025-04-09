@@ -101,19 +101,12 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
+      - name: Create results file
+        run: |
+          echo "${{ needs.test.outputs.test_summary }}" > test-results.md
+      
       - name: Post test results to PR
-        uses: actions/github-script@v7
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            var testResults = "${{ needs.test.outputs.test_summary }}";
-            var issue_number = context.issue.number;
-            var owner = context.repo.owner;
-            var repo = context.repo.repo;
-            
-            github.rest.issues.createComment({
-              issue_number: issue_number,
-              owner: owner,
-              repo: repo,
-              body: testResults
-            });
+          header: test-results
+          path: test-results.md
