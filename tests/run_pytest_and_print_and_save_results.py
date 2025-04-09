@@ -31,7 +31,7 @@ def parse_pytest_output(output: str) -> List[Dict[str, any]]:
     return results
 
 
-def generate_test_report(test_results):
+def generate_test_report(test_results, duration):
     total_tests = sum(item["count"] for item in test_results)
     total_passed = sum(item["passed"] for item in test_results)
     total_failed = sum(item["failed"] for item in test_results)
@@ -42,6 +42,7 @@ TEST EXECUTION REPORT
 Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 Summary:
+- Duration: {duration}
 - Total Tests: {total_tests}
 - Passed: {total_passed} ({total_passed / total_tests * 100:.1f}%)
 - Failed: {total_failed} ({total_failed / total_tests * 100:.1f}%)
@@ -96,6 +97,8 @@ def save_report(report, filename=None):
 
 
 def run_pytest_and_generate_report():
+    start_time = datetime.now()
+
     # Run pytest
     output = subprocess.run(
         "python -m pytest",
@@ -104,10 +107,15 @@ def run_pytest_and_generate_report():
         text=True
     ).stdout
 
+    # duration
+    end_time = datetime.now()
+    duration = f"{(end_time - start_time).total_seconds() / 60:.2f} minutes"
+
+
     # Parse test results from output
     test_results = parse_pytest_output(output)
     # Generate report
-    report = generate_test_report(test_results)
+    report = generate_test_report(test_results, duration)
     # Print and save
     print(report)
     save_report(report)
@@ -115,3 +123,4 @@ def run_pytest_and_generate_report():
 
 if __name__ == "__main__":
     run_pytest_and_generate_report()
+  
