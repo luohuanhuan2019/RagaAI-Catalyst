@@ -11,7 +11,7 @@ This test suite validates the functionality of RagaAI Catalyst using pytest. It 
 
 1. **Create the Conda environment** from the provided `environment.yml`:
    ```bash
-   conda env create -f 'RagaAI-Catalyst/tests/environment.yml'
+   conda env create -f 'tests/environment.yml'
 
 2. **Activate the environment:**
    ```bash
@@ -62,12 +62,12 @@ SERPERDEV_API_KEY=12156d53ace04324ab935a67e356cce4c9984a84
 1. **Run Tests Individually with Pytest**
     Execute tests one by one and visualize pass/fail/error status:
     ```bash
-    python -m pytest 'RagaAI-Catalyst/tests'
+    python -m pytest tests
 
 2. **Run All Tests and Generate Report**
     To run all tests and generate a comprehensive report:
     ```bash
-    python 'RagaAI-Catalyst/tests/run_pytest_and_print_and_save_results.py'
+    python 'tests/run_pytest_and_print_and_save_results.py'
     ```
 
     ![Table_Result](table_result.png)
