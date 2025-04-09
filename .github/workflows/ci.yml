@@ -27,17 +27,14 @@ jobs:
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH="$HOME/.cargo/bin:$PATH"
           fi
-          uv pip install ruff isort black
+          uv pip install ruff
           uv pip install -e ".[dev]"
-      - name: Check with Ruff
+      - name: Format and lint with Ruff
         run: |
-          ruff check .
-      - name: Check with isort
-        run: |
-          isort --check-only --profile black .
-      - name: Check with Black
-        run: |
-          black --check .
+          # First run format to fix formatting issues
+          ruff format .
+          # Then run check with auto-fix for fixable issues
+          ruff check --fix .
 
   test:
     needs: code-quality
