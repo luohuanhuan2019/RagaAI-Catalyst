@@ -6,7 +6,7 @@ import asyncio
 import aiohttp
 import requests
 from litellm import model_cost
-
+from pathlib import Path
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from ragaai_catalyst.tracers.langchain_callback import LangchainTracer
@@ -368,6 +368,154 @@ class Tracer(AgenticTracing):
             "input_cost_per_token": float(cost_config["input_cost_per_million_token"])/ 1000000,
             "output_cost_per_token": float(cost_config["output_cost_per_million_token"]) /1000000
         }
+
+    # def register_masking_function(self, masking_func):
+    #     """
+    #     Register a masking function that will be used to transform values in the trace data.
+    #     This method handles all file operations internally and creates a post-processor
+    #     using the provided masking function.
+        
+    #     Args:
+    #         masking_func (callable): A function that takes a value and returns the masked value.
+    #             The function should handle string transformations for masking sensitive data.
+                
+    #             Example:
+    #             def masking_function(value):
+    #                 if isinstance(value, str):
+    #                     value = re.sub(r'\b\d+\.\d+\b', 'x.x', value)
+    #                     value = re.sub(r'\b\d+\b', 'xxxx', value)
+    #                 return value
+    #     """
+    #     if not callable(masking_func):
+    #         raise TypeError("masking_func must be a callable")
+
+    #     def recursive_mask_values(obj):
+    #         """Apply masking to all values in nested structure."""
+    #         if isinstance(obj, dict):
+    #             return {k: recursive_mask_values(v) for k, v in obj.items()}
+    #         elif isinstance(obj, list):
+    #             return [recursive_mask_values(item) for item in obj]
+    #         elif isinstance(obj, str):
+    #             return masking_func(obj)
+    #         else:
+    #             return obj
+
+    #     def file_post_processor(original_trace_json_path: os.PathLike) -> os.PathLike:
+    #         original_path = Path(original_trace_json_path)
+            
+    #         # Read original JSON data
+    #         with open(original_path, 'r') as f:
+    #             data = json.load(f)
+    #         print("--------------------------------")
+    #         print("Before: ")
+    #         print(data['data'])
+    #         # Apply masking only to data['data']
+    #         data['data'] = recursive_mask_values(data['data'])
+    #         print("====================================")
+    #         print("After: ")
+    #         print(data['data'])
+            
+    #         # Create new filename with 'processed_' prefix in /var/tmp/
+    #         new_filename = f"processed_{original_path.name}"
+    #         final_trace_json_path = Path("/var/tmp") / new_filename
+            
+    #         # Write modified data to the new file
+    #         with open(final_trace_json_path, 'w') as f:
+    #             json.dump(data, f, indent=4)
+            
+    #         logger.debug(f"Created masked trace file: {final_trace_json_path}")
+    #         return final_trace_json_path
+
+    #     # Register the created post-processor
+    #     self.post_processor = file_post_processor
+        
+    #     # Register in parent AgenticTracing class
+    #     super().register_post_processor(file_post_processor)
+        
+    #     # Update DynamicTraceExporter's post-processor if it exists
+    #     if hasattr(self, 'dynamic_exporter'):
+    #         self.dynamic_exporter._exporter.post_processor = file_post_processor
+    #         self.dynamic_exporter._post_processor = file_post_processor
+    #         logger.debug("Masking function registered as post-processor in DynamicTraceExporter")
+        
+    #     logger.debug("Masking function registered successfully as post-processor")
+
+    def register_masking_function(self, masking_func):
+        """
+        Register a masking function that will be used to transform values in the trace data.
+        This method handles all file operations internally and creates a post-processor
+        using the provided masking function.
+        
+        Args:
+            masking_func (callable): A function that takes a value and returns the masked value.
+                The function should handle string transformations for masking sensitive data.
+                
+                Example:
+                def masking_function(value):
+                    if isinstance(value, str):
+                        value = re.sub(r'\b\d+\.\d+\b', 'x.x', value)
+                        value = re.sub(r'\b\d+\b', 'xxxx', value)
+                    return value
+        """
+        if not callable(masking_func):
+            raise TypeError("masking_func must be a callable")
+
+        def recursive_mask_values(obj, parent_key=None):
+            """Apply masking to all values in nested structure."""
+            if isinstance(obj, dict):
+                return {k: recursive_mask_values(v, k) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [recursive_mask_values(item, parent_key) for item in obj]
+            elif isinstance(obj, str):
+                # List of keys that should NOT be masked
+                excluded_keys = {
+                    'start_time', 'end_time', 'name', 'id', 
+                    'hash_id', 'parent_id', 'source_hash_id',
+                    'cost', 'type', 'feedback', 'error', 'ctx','telemetry.sdk.version',
+                    'telemetry.sdk.language','service.name'
+                }
+                # Apply masking only if the key is NOT in the excluded list
+                if parent_key and parent_key.lower() not in excluded_keys:
+                    return masking_func(obj)
+                return obj
+            else:
+                return obj
+
+        def file_post_processor(original_trace_json_path: os.PathLike) -> os.PathLike:
+            original_path = Path(original_trace_json_path)
+            
+            # Read original JSON data
+            with open(original_path, 'r') as f:
+                data = json.load(f)
+            
+            # Apply masking only to data['data']
+            data['data'] = recursive_mask_values(data['data'])
+            
+            # Create new filename with 'processed_' prefix in /var/tmp/
+            new_filename = f"processed_{original_path.name}"
+            final_trace_json_path = Path("/var/tmp") / new_filename
+            
+            # Write modified data to the new file
+            with open(final_trace_json_path, 'w') as f:
+                json.dump(data, f, indent=4)
+            
+            logger.debug(f"Created masked trace file: {final_trace_json_path}")
+            return final_trace_json_path
+
+        # Register the created post-processor
+        self.post_processor = file_post_processor
+        
+        # Register in parent AgenticTracing class
+        super().register_post_processor(file_post_processor)
+        
+        # Update DynamicTraceExporter's post-processor if it exists
+        if hasattr(self, 'dynamic_exporter'):
+            self.dynamic_exporter._exporter.post_processor = file_post_processor
+            self.dynamic_exporter._post_processor = file_post_processor
+            logger.debug("Masking function registered as post-processor in DynamicTraceExporter")
+        
+        logger.debug("Masking function registered successfully as post-processor")
+
     
     def register_post_processor(self, post_processor_func):
         """
@@ -389,7 +537,7 @@ class Tracer(AgenticTracing):
             self.dynamic_exporter._exporter.post_processor = post_processor_func
             self.dynamic_exporter._post_processor = post_processor_func
         logger.info("Registered post process as: "+str(post_processor_func))
-
+    
 
     def set_dataset_name(self, dataset_name):
         """
