@@ -48,8 +48,8 @@ def evaluation(base_url, access_keys):
         secret_key=access_keys["secret_key"]
     )
     return Evaluation(
-        project_name="prompt_metric_dataset", 
-        dataset_name="schema_metric_dataset_ritika_20250409_111425"
+        project_name="prompt_metric_dataset_sk", 
+        dataset_name="dataset_19feb_1"
     )
 
 @pytest.fixture
@@ -61,15 +61,15 @@ def chat_evaluation(base_url, access_keys):
         secret_key=access_keys["secret_key"]
     )
     return Evaluation(
-        project_name="chat_demo_sk_v1", 
-        dataset_name="chat_metric_dataset_ritika"
+        project_name="prompt_metric_dataset_sk", 
+        dataset_name="dataset_19feb_1"
     )
 
 # Basic initialization tests
 def test_evaluation_initialization(evaluation):
     """Test if evaluation is initialized correctly"""
-    assert evaluation.project_name == "prompt_metric_dataset"
-    assert evaluation.dataset_name == "schema_metric_dataset_ritika_20250409_111425"
+    assert evaluation.project_name == "prompt_metric_dataset_sk"
+    assert evaluation.dataset_name == "dataset_19feb_1"
 
 def test_project_does_not_exist():
     """Test initialization with non-existent project"""
@@ -123,7 +123,8 @@ def test_core_metrics_evaluation(evaluation, metric_name, provider_config, capfd
         "schema_mapping": {
             'Query': 'prompt',
             'Response': 'response',
-            'Context': 'context'
+            'Context': 'context',
+            'ExpectedResponse': 'expectedresponse'
         }
     }]
     
@@ -148,9 +149,9 @@ def test_chat_metrics_evaluation(chat_evaluation, metric_name, provider_config, 
         "config": provider_config,
         "column_name": f"{metric_name}_column_{timestamp}",
         "schema_mapping": {
-            'ChatID': 'ChatID',
-            'Chat': 'Chat',
-            'Instructions': 'Instructions'
+            '_traceid': 'ChatID',
+            'Query': 'Chat',
+            'Context': 'Instructions'
         }
     }]
     
