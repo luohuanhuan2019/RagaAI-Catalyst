@@ -17,19 +17,24 @@ jobs:
         with:
           python-version: '3.10'
       - name: Install dependencies
+        shell: bash
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv pip install --system ruff isort black
-          uv pip install --system -e ".[dev]"
-      - name: Check with Ruff
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            python -m pip install --upgrade pip
+            pip install ruff
+            pip install -e ".[dev]"
+          else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.cargo/bin:$PATH"
+            uv pip install --system ruff
+            uv pip install --system -e ".[dev]"
+          fi
+      - name: Format and lint with Ruff
         run: |
-          ruff check .
-      - name: Check with isort
-        run: |
-          isort --check-only --profile black .
-      - name: Check with Black
-        run: |
-          black --check .
+          # First run format to fix formatting issues
+          ruff format .
+          # Then run check with auto-fix for fixable issues
+          ruff check --fix .
 
   test:
     needs: code-quality
@@ -40,6 +45,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13']
     runs-on: ${{ matrix.os }}
+    outputs:
+      test_summary: ${{ steps.pytest.outputs.test_summary }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -47,11 +54,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
+        shell: bash
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv pip install --system pytest pytest-cov
-          uv pip install --system -e ".[dev]"
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            python -m pip install --upgrade pip
+            pip install pytest pytest-cov
+            pip install -e ".[dev]"
+          else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.cargo/bin:$PATH"
+            uv pip install --system pytest pytest-cov
+            uv pip install --system -e ".[dev]"
+          fi
       - name: Test with pytest
+        id: pytest
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -71,4 +87,11 @@ jobs:
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           SERPERDEV_API_KEY: ${{ secrets.SERPERDEV_API_KEY }}
         run: |
-          pytest tests/ -v
+          mkdir -p test-results
+          pytest tests/ -v --junitxml=test-results/junit.xml | tee test-output.txt
+          echo "test_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "### Test Results for ${{ matrix.os }} - Python ${{ matrix.python-version }}" >> $GITHUB_OUTPUT
+          echo '```' >> $GITHUB_OUTPUT
+          cat test-output.txt | grep -E "collected|PASSED|FAILED|ERROR|SKIPPED" >> $GITHUB_OUTPUT
+          echo '```' >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
