@@ -83,6 +83,8 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
         additional_metadata = get_additional_metadata(input_trace, custom_model_cost, model_cost)
     
     trace_aggregate["metadata"].update(additional_metadata)
+    additional_metadata.pop("total_cost")
+    additional_metadata.pop("total_latency")
     return trace_aggregate, additional_metadata
 
 def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt="", response=""):
