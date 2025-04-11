@@ -65,7 +65,7 @@ jobs:
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH="$HOME/.cargo/bin:$PATH"
             uv pip install --system pytest pytest-cov
-            uv pip install -r tests_requirements.txt
+            uv pip install --system -r tests_requirements.txt
             uv pip install --system -e ".[dev]"
           fi
       - name: Test with pytest
