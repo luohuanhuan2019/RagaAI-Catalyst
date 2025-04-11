@@ -51,7 +51,7 @@ dependencies = [
     "openinference-instrumentation-mistralai",
     "openinference-instrumentation-openai",
     "openinference-instrumentation-bedrock",
-    #"openinference-instrumentation-crewai",
+    "openinference-instrumentation-crewai",
     "openinference-instrumentation-haystack",
     "openinference-instrumentation-openai-agents",
     "openinference-instrumentation-smolagents",
