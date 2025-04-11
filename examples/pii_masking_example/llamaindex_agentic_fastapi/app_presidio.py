@@ -75,33 +75,7 @@ FI_LLM = AzureOpenAI(
     engine=deployment
 )
 import random
-from fastapi import FastAPI, BackgroundTasks
-from fastapi.responses import StreamingResponse
-import uvicorn
-import json
-import asyncio
-from llama_index.core.llms import ChatMessage
-from llama_index.core.tools import ToolSelection, ToolOutput
-from llama_index.core.workflow import Event
-from typing import Any, List
-from llama_index.core.agent.react import ReActChatFormatter, ReActOutputParser
-from llama_index.core.agent.react.types import (
-    ActionReasoningStep,
-    ObservationReasoningStep,
-)
-from llama_index.core.llms.llm import LLM
-from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.core.tools.types import BaseTool
-from llama_index.core.workflow import (
-    Context,
-    Workflow,
-    StartEvent,
-    StopEvent,
-    step,
-)
-from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool
-
 app = FastAPI(title="ReAct Agent API")
 
 # Event classes
