@@ -174,8 +174,6 @@ class RAGATraceExporter(SpanExporter):
                 
                 logger.info(f"Successfully uploaded rag trace {trace_id}")
         except Exception as e:
-            print(trace_id)
-            import time; time.sleep(5)
             logger.error(f"Error uploading rag trace {trace_id}: {str(e)}")
     
     def prepare_rag_trace(self, spans, trace_id):
