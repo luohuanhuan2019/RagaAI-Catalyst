@@ -149,12 +149,8 @@ class RAGATraceExporter(SpanExporter):
             with open(trace_file_path, 'w') as f:
                 json.dump(ragaai_trace, f, indent=2)
             
-            trace_file_path_2 = os.path.join(os.getcwd(), f"{trace_id}.json")
-            with open(trace_file_path_2, 'w') as f:
-                json.dump(ragaai_trace, f, indent=2)
-            
             # Create a ThreadPoolExecutor with max_workers=10
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
                 # Create a partial function with all the necessary arguments
                 upload_func = partial(
                     UploadTraces(
@@ -168,13 +164,32 @@ class RAGATraceExporter(SpanExporter):
                     additional_metadata_keys=additional_metadata
                 )
                 
-                # Submit the task to the executor and get a future
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(executor, upload_func)
+                # Implement retry logic - attempt upload up to 3 times
+                max_retries = 3
+                retry_count = 0
+                last_exception = None
                 
-                logger.info(f"Successfully uploaded rag trace {trace_id}")
+                while retry_count < max_retries:
+                    try:
+                        # Submit the task to the executor and get a future
+                        loop = asyncio.get_event_loop()
+                        await loop.run_in_executor(executor, upload_func)
+                        
+                        logger.info(f"Successfully uploaded rag trace {trace_id} on attempt {retry_count + 1}")
+                        return  # Exit the method if upload is successful
+                    except Exception as e:
+                        retry_count += 1
+                        last_exception = e
+                        logger.warning(f"Attempt {retry_count} to upload rag trace {trace_id} failed: {str(e)}")
+                        
+                        if retry_count < max_retries:
+                            # Add a small delay before retrying (exponential backoff)
+                            await asyncio.sleep(2 ** retry_count)  # 2, 4, 8 seconds
+                
+                # If we've exhausted all retries, log the error
+                logger.error(f"Failed to upload rag trace {trace_id} after {max_retries} attempts. Last error: {str(last_exception)}")
         except Exception as e:
-            logger.error(f"Error uploading rag trace {trace_id}: {str(e)}")
+            logger.error(f"Error preparing rag trace {trace_id} for upload: {str(e)}")
     
     def prepare_rag_trace(self, spans, trace_id):
         try:            
