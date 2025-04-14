@@ -149,8 +149,8 @@ class RAGATraceExporter(SpanExporter):
             with open(trace_file_path, 'w') as f:
                 json.dump(ragaai_trace, f, indent=2)
             
-            # Create a ThreadPoolExecutor with max_workers=10
-            with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+            # Create a ThreadPoolExecutor with max_workers=30
+            with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
                 # Create a partial function with all the necessary arguments
                 upload_func = partial(
                     UploadTraces(
