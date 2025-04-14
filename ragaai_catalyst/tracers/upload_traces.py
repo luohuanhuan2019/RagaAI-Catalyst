@@ -105,7 +105,7 @@ class UploadTraces:
 
         if "blob.core.windows.net" in presignedUrl:  # Azure
             headers["x-ms-blob-type"] = "BlockBlob"
-        print(f"Uploading traces...")
+        # print(f"Uploading traces...")
         with open(filename) as f:
             payload = f.read().replace("\n", "").replace("\r", "").encode()
             
@@ -142,6 +142,6 @@ class UploadTraces:
                 return
             self._put_presigned_url(presignedUrl, self.json_file_path)
             self._insert_traces(presignedUrl)
-            print("Traces uploaded")
+            # print("Traces uploaded")
         except Exception as e:
             print(f"Error while uploading agentic traces: {e}")
