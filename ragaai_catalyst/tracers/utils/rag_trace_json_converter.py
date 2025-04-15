@@ -110,14 +110,11 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
                             message=prompt
                         )
                     except Exception as e:
-                        # logger.warning(f"Failed to count prompt tokens: {str(e)}. Using word count as fallback.")
-                        # Use word count as a rough approximation (words * 1.3 for tokens)
-                        if isinstance(prompt, str):
-                            word_count = len(prompt.split())
-                            additional_metadata["tokens"]["prompt"] = int(word_count * (4/3))
-                        else:
-                            logger.warning("Prompt is not a string, setting token count to 0")
-                            additional_metadata["tokens"]["prompt"] = 0
+                        logger.warning(f"Failed to count prompt tokens: {str(e)}. Using 'gpt-4o-mini' model count as fallback.")
+                        additional_metadata["tokens"]["prompt"] = num_tokens_from_messages(
+                            model="gpt-4o-mini",
+                            message=prompt
+                        )
                 
                 try:
                     additional_metadata["tokens"]["completion"] = span["attributes"]["llm.token_count.completion"]
@@ -129,14 +126,11 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
                             message=response
                         )
                     except Exception as e:
-                        logger.warning(f"Failed to count completion tokens: {str(e)}. Using word count as fallback.")
-                        # Use word count as a rough approximation (words * 1.3 for tokens)
-                        if isinstance(response, str):
-                            word_count = len(response.split())
-                            additional_metadata["tokens"]["completion"] = int(word_count * (4/3))
-                        else:
-                            logger.warning("Response is not a string, setting token count to 0")
-                            additional_metadata["tokens"]["completion"] = 0
+                        logger.warning(f"Failed to count completion tokens: {str(e)}. Using 'gpt-4o-mini' model count as fallback.")
+                        additional_metadata["tokens"]["completion"] = num_tokens_from_messages(
+                            model="gpt-4o-mini",
+                            message=response
+                        )
                 
                 # Ensure both values are not None before adding
                 prompt_tokens = additional_metadata["tokens"].get("prompt", 0) or 0
