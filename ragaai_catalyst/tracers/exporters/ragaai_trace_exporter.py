@@ -26,7 +26,7 @@ logging_level = (
 
 
 class RAGATraceExporter(SpanExporter):
-    def __init__(self, tracer_type, files_to_zip, project_name, project_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None):
+    def __init__(self, tracer_type, files_to_zip, project_name, project_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None, max_upload_workers = 30):
         self.trace_spans = dict()
         self.tmp_dir = tempfile.gettempdir()
         self.tracer_type = tracer_type
@@ -40,6 +40,7 @@ class RAGATraceExporter(SpanExporter):
         self.system_monitor = SystemMonitor(dataset_name)
         self.timeout = timeout
         self.post_processor = post_processor
+        self.max_upload_workers = max_upload_workers
 
     def export(self, spans):
         for span in spans:
@@ -189,7 +190,7 @@ class RAGATraceExporter(SpanExporter):
                 json.dump(ragaai_trace, f, indent=2)
             
             # Create a ThreadPoolExecutor with max_workers=30
-            with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_upload_workers) as executor:
                 # Create a partial function with all the necessary arguments
                 upload_func = partial(
                     UploadTraces(

@@ -59,6 +59,7 @@ class Tracer(AgenticTracing):
         },
         interval_time=2,
         # auto_instrumentation=True/False  # to control automatic instrumentation of everything
+        max_upload_workers=30
 
     ):
         """
@@ -141,6 +142,7 @@ class Tracer(AgenticTracing):
         self.user_context = ""  # Initialize user_context to store context from add_context
         self.file_tracker = TrackName()
         self.post_processor = None
+        self.max_upload_workers = max_upload_workers
         
         try:
             response = requests.get(
@@ -763,7 +765,8 @@ class Tracer(AgenticTracing):
             base_url=self.base_url,
             custom_model_cost=self.model_custom_cost,
             timeout = self.timeout,
-            post_processor= self.post_processor
+            post_processor= self.post_processor,
+            max_upload_workers = self.max_upload_workers
         )
         
         # Set up tracer provider
