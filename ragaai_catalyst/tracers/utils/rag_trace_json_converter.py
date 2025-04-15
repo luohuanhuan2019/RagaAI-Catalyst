@@ -103,20 +103,45 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
                     additional_metadata["tokens"]["prompt"] = span["attributes"]["llm.token_count.prompt"]
 
                 except:
-                    logger.warning("Warning: prompt token not found. using tiktoken to get tokens.")
-                    additional_metadata["tokens"]["prompt"] = num_tokens_from_messages(
-                        model=additional_metadata["model_name"],
-                        message=prompt
-                    )
+                    logger.warning("Warning: prompt token not found. using fallback strategies to get tokens.")
+                    try:
+                        additional_metadata["tokens"]["prompt"] = num_tokens_from_messages(
+                            model=additional_metadata["model_name"],
+                            message=prompt
+                        )
+                    except Exception as e:
+                        # logger.warning(f"Failed to count prompt tokens: {str(e)}. Using word count as fallback.")
+                        # Use word count as a rough approximation (words * 1.3 for tokens)
+                        if isinstance(prompt, str):
+                            word_count = len(prompt.split())
+                            additional_metadata["tokens"]["prompt"] = int(word_count * (4/3))
+                        else:
+                            logger.warning("Prompt is not a string, setting token count to 0")
+                            additional_metadata["tokens"]["prompt"] = 0
+                
                 try:
                     additional_metadata["tokens"]["completion"] = span["attributes"]["llm.token_count.completion"]
                 except:
-                    logger.warning("Warning: completion token not found. using tiktoken to get tokens.")
-                    additional_metadata["tokens"]["completion"] = num_tokens_from_messages(
-                        model=additional_metadata["model_name"],
-                        message=response
-                    )
-                additional_metadata["tokens"]["total"] = additional_metadata["tokens"]["prompt"] + additional_metadata["tokens"]["completion"]
+                    logger.warning("Warning: completion token not found. using fallback strategies to get tokens.")
+                    try:
+                        additional_metadata["tokens"]["completion"] = num_tokens_from_messages(
+                            model=additional_metadata["model_name"],
+                            message=response
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to count completion tokens: {str(e)}. Using word count as fallback.")
+                        # Use word count as a rough approximation (words * 1.3 for tokens)
+                        if isinstance(response, str):
+                            word_count = len(response.split())
+                            additional_metadata["tokens"]["completion"] = int(word_count * (4/3))
+                        else:
+                            logger.warning("Response is not a string, setting token count to 0")
+                            additional_metadata["tokens"]["completion"] = 0
+                
+                # Ensure both values are not None before adding
+                prompt_tokens = additional_metadata["tokens"].get("prompt", 0) or 0
+                completion_tokens = additional_metadata["tokens"].get("completion", 0) or 0
+                additional_metadata["tokens"]["total"] = prompt_tokens + completion_tokens
 
     except Exception as e:
         logger.error(f"Error getting additional metadata: {str(e)}")
@@ -126,17 +151,42 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
             model_cost_data = custom_model_cost[additional_metadata.get('model_name')]
         else:
             model_cost_data = model_cost_dict.get(additional_metadata.get('model_name'))
-        if 'tokens' in additional_metadata and all(k in additional_metadata['tokens'] for k in ['prompt', 'completion']):
-            prompt_cost = additional_metadata["tokens"]["prompt"]*model_cost_data.get("input_cost_per_token", 0)
-            completion_cost = additional_metadata["tokens"]["completion"]*model_cost_data.get("output_cost_per_token", 0)
+        
+        # Check if model_cost_data is None
+        if model_cost_data is None:
+            logger.warning(f"No cost data found for model: {additional_metadata.get('model_name')}")
+            # Set default values
+            additional_metadata["cost"] = 0.0
+            additional_metadata["total_cost"] = 0.0
+            additional_metadata["total_latency"] = additional_metadata.get("latency", 0)
+            additional_metadata["prompt_tokens"] = additional_metadata["tokens"].get("prompt", 0) or 0
+            additional_metadata["completion_tokens"] = additional_metadata["tokens"].get("completion", 0) or 0
+        elif 'tokens' in additional_metadata and all(k in additional_metadata['tokens'] for k in ['prompt', 'completion']):
+            # Get input and output costs, defaulting to 0 if not found
+            input_cost_per_token = model_cost_data.get("input_cost_per_token", 0) or 0
+            output_cost_per_token = model_cost_data.get("output_cost_per_token", 0) or 0
+            
+            # Get token counts, defaulting to 0 if not found
+            prompt_tokens = additional_metadata["tokens"].get("prompt", 0) or 0
+            completion_tokens = additional_metadata["tokens"].get("completion", 0) or 0
+            
+            # Calculate costs
+            prompt_cost = prompt_tokens * input_cost_per_token
+            completion_cost = completion_tokens * output_cost_per_token
+            
             additional_metadata["cost"] = prompt_cost + completion_cost 
             additional_metadata["total_cost"] = additional_metadata["cost"]
-            additional_metadata["total_latency"] = additional_metadata["latency"]
-            additional_metadata["prompt_tokens"] = additional_metadata["tokens"]["prompt"]
-            additional_metadata["completion_tokens"] = additional_metadata["tokens"]["completion"]
+            additional_metadata["total_latency"] = additional_metadata.get("latency", 0)
+            additional_metadata["prompt_tokens"] = prompt_tokens
+            additional_metadata["completion_tokens"] = completion_tokens
     except Exception as e:
-        logger.error(f"Error getting model cost data: {str(e)}")
-    
+        logger.warning(f"Error getting model cost data: {str(e)}")
+        # Set default values in case of error
+        additional_metadata["cost"] = 0.0
+        additional_metadata["total_cost"] = 0.0
+        additional_metadata["total_latency"] = additional_metadata.get("latency", 0)
+        additional_metadata["prompt_tokens"] = additional_metadata["tokens"].get("prompt", 0) or 0
+        additional_metadata["completion_tokens"] = additional_metadata["tokens"].get("completion", 0) or 0
     try:
         additional_metadata.pop("tokens", None)
     except Exception as e:
