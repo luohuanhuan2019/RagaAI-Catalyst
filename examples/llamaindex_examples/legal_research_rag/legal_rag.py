@@ -13,6 +13,7 @@ from llama_index.core.postprocessor import MetadataReplacementPostProcessor
 from dotenv import load_dotenv
 from ragaai_catalyst import RagaAICatalyst, init_tracing
 from ragaai_catalyst.tracers import Tracer
+load_dotenv()
 
 
 catalyst = RagaAICatalyst(
@@ -26,7 +27,6 @@ tracer = Tracer(
     dataset_name=os.getenv('DATASET_NAME'),
     tracer_type="agentic/llamaindex",
 )
-load_dotenv()
 
 init_tracing(catalyst=catalyst, tracer=tracer)
 

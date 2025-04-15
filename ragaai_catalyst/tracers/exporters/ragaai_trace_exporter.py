@@ -26,7 +26,7 @@ logging_level = (
 
 
 class RAGATraceExporter(SpanExporter):
-    def __init__(self, tracer_type, files_to_zip, project_name, project_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120):
+    def __init__(self, tracer_type, files_to_zip, project_name, project_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None):
         self.trace_spans = dict()
         self.tmp_dir = tempfile.gettempdir()
         self.tracer_type = tracer_type
@@ -39,29 +39,34 @@ class RAGATraceExporter(SpanExporter):
         self.custom_model_cost = custom_model_cost
         self.system_monitor = SystemMonitor(dataset_name)
         self.timeout = timeout
+        self.post_processor = post_processor
 
     def export(self, spans):
         for span in spans:
-            span_json = json.loads(span.to_json())
-            trace_id = span_json.get("context").get("trace_id")
-            if trace_id is None:
-                raise Exception("Trace ID is None")
+            try:
+                span_json = json.loads(span.to_json())
+                trace_id = span_json.get("context").get("trace_id")
+                if trace_id is None:
+                    raise Exception("Trace ID is None")
 
-            if trace_id not in self.trace_spans:
-                self.trace_spans[trace_id] = list()
+                if trace_id not in self.trace_spans:
+                    self.trace_spans[trace_id] = list()
 
-            self.trace_spans[trace_id].append(span_json)
+                self.trace_spans[trace_id].append(span_json)
 
-            if span_json["parent_id"] is None:
-                trace = self.trace_spans[trace_id]
-                try:
-                    self.process_complete_trace(trace, trace_id)
-                except Exception as e:
-                    raise Exception(f"Error processing complete trace: {e}")
-                try:
-                    del self.trace_spans[trace_id]
-                except Exception as e:
-                    raise Exception(f"Error deleting trace: {e}")
+                if span_json["parent_id"] is None:
+                    trace = self.trace_spans[trace_id]
+                    try:
+                        self.process_complete_trace(trace, trace_id)
+                    except Exception as e:
+                        raise Exception(f"Error processing complete trace: {e}")
+                    try:
+                        del self.trace_spans[trace_id]
+                    except Exception as e:
+                        raise Exception(f"Error deleting trace: {e}")
+            except Exception as e:
+                logger.warning(f"Error processing span: {e}")
+                continue
 
         return SpanExportResult.SUCCESS
 
@@ -80,9 +85,10 @@ class RAGATraceExporter(SpanExporter):
                 ragaai_trace_details = self.prepare_trace(spans, trace_id)
         except Exception as e:
             print(f"Error converting trace {trace_id}: {e}")
-        
         # Upload the trace if upload_trace function is provided
         try:
+            if self.post_processor!=None:
+                ragaai_trace_details['trace_file_path'] = self.post_processor(ragaai_trace_details['trace_file_path'])
             if self.tracer_type == "langchain":
                 asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
             else:
@@ -92,28 +98,62 @@ class RAGATraceExporter(SpanExporter):
 
     def prepare_trace(self, spans, trace_id):
         try:
-            ragaai_trace = convert_json_format(spans, self.custom_model_cost)   
-            interactions = format_interactions(ragaai_trace)         
-            ragaai_trace["workflow"] = interactions['workflow']
-
-            # Add source code hash
-            hash_id, zip_path = zip_list_of_unique_files(
-                self.files_to_zip, output_dir=self.tmp_dir
-            )
-
-            ragaai_trace["metadata"]["system_info"] = asdict(self.system_monitor.get_system_info())
-            ragaai_trace["metadata"]["resources"] = asdict(self.system_monitor.get_resources())
-            ragaai_trace["metadata"]["system_info"]["source_code"] = hash_id
-
-            ragaai_trace["data"][0]["start_time"] = ragaai_trace["start_time"]
-            ragaai_trace["data"][0]["end_time"] = ragaai_trace["end_time"]
-
-            ragaai_trace["project_name"] = self.project_name
+            try:
+                ragaai_trace = convert_json_format(spans, self.custom_model_cost)   
+            except Exception as e:
+                print(f"Error in convert_json_format function: {trace_id}: {e}")
+                return None
             
-            # Save the trace_json 
-            trace_file_path = os.path.join(self.tmp_dir, f"{trace_id}.json")
-            with open(trace_file_path, "w") as file:
-                json.dump(ragaai_trace, file, cls=TracerJSONEncoder, indent=2)
+            try:
+                interactions = format_interactions(ragaai_trace)         
+                ragaai_trace["workflow"] = interactions['workflow']
+            except Exception as e:
+                print(f"Error in format_interactions function: {trace_id}: {e}")
+                return None
+
+            try:
+                # Add source code hash
+                hash_id, zip_path = zip_list_of_unique_files(
+                    self.files_to_zip, output_dir=self.tmp_dir
+                )
+            except Exception as e:
+                print(f"Error in zip_list_of_unique_files function: {trace_id}: {e}")
+                return None
+
+            try:
+                ragaai_trace["metadata"]["system_info"] = asdict(self.system_monitor.get_system_info())
+                ragaai_trace["metadata"]["resources"] = asdict(self.system_monitor.get_resources())
+            except Exception as e:
+                print(f"Error in get_system_info or get_resources function: {trace_id}: {e}")
+                return None
+
+            try:
+                ragaai_trace["metadata"]["system_info"]["source_code"] = hash_id
+            except Exception as e:
+                print(f"Error in adding source code hash: {trace_id}: {e}")
+                return None
+
+            try:
+                ragaai_trace["data"][0]["start_time"] = ragaai_trace["start_time"]
+                ragaai_trace["data"][0]["end_time"] = ragaai_trace["end_time"]
+            except Exception as e:
+                print(f"Error in adding start_time or end_time: {trace_id}: {e}")
+                return None
+
+            try:
+                ragaai_trace["project_name"] = self.project_name
+            except Exception as e:
+                print(f"Error in adding project name: {trace_id}: {e}")
+                return None
+            
+            try:
+                # Save the trace_json 
+                trace_file_path = os.path.join(self.tmp_dir, f"{trace_id}.json")
+                with open(trace_file_path, "w") as file:
+                    json.dump(ragaai_trace, file, cls=TracerJSONEncoder, indent=2)
+            except Exception as e:
+                print(f"Error in saving trace json: {trace_id}: {e}")
+                return None
 
             return {
                 'trace_file_path': trace_file_path,
@@ -121,14 +161,13 @@ class RAGATraceExporter(SpanExporter):
                 'hash_id': hash_id
             }
         except Exception as e:
-            logger.error(f"Error converting trace {trace_id}: {str(e)}")
+            print(f"Error converting trace {trace_id}: {str(e)}")
             return None
 
     def upload_trace(self, ragaai_trace_details, trace_id):
         filepath = ragaai_trace_details['trace_file_path']
         hash_id = ragaai_trace_details['hash_id']
-        zip_path = ragaai_trace_details['code_zip_path']  
-
+        zip_path = ragaai_trace_details['code_zip_path']
         self.upload_task_id = submit_upload_task(
                 filepath=filepath,
                 hash_id=hash_id,

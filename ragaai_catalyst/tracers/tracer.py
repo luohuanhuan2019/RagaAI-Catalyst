@@ -6,7 +6,7 @@ import asyncio
 import aiohttp
 import requests
 from litellm import model_cost
-
+from pathlib import Path
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from ragaai_catalyst.tracers.langchain_callback import LangchainTracer
@@ -71,7 +71,7 @@ class Tracer(AgenticTracing):
             pipeline (dict, optional): The pipeline configuration. Defaults to None.
             metadata (dict, optional): The metadata. Defaults to None.
             description (str, optional): The description. Defaults to None.
-            timeout (int, optional): The upload timeout in seconds. Defaults to 30.
+            timeout (int, optional): The upload timeout in seconds. Defaults to 120.
             update_llm_cost (bool, optional): Whether to update model costs from GitHub. Defaults to True.
         """
 
@@ -134,11 +134,13 @@ class Tracer(AgenticTracing):
         self.description = description
         self.timeout = timeout
         self.base_url = f"{RagaAICatalyst.BASE_URL}"
+        self.timeout = timeout
         self.num_projects = 99999
         self.start_time = datetime.datetime.now().astimezone().isoformat()
         self.model_cost_dict = model_cost
         self.user_context = ""  # Initialize user_context to store context from add_context
         self.file_tracker = TrackName()
+        self.post_processor = None
         
         try:
             response = requests.get(
@@ -369,6 +371,95 @@ class Tracer(AgenticTracing):
             "output_cost_per_token": float(cost_config["output_cost_per_million_token"]) /1000000
         }
 
+    def register_masking_function(self, masking_func):
+        """
+        Register a masking function that will be used to transform values in the trace data.
+        This method handles all file operations internally and creates a post-processor
+        using the provided masking function.
+        
+        Args:
+            masking_func (callable): A function that takes a value and returns the masked value.
+                The function should handle string transformations for masking sensitive data.
+                
+                Example:
+                def masking_function(value):
+                    if isinstance(value, str):
+                        value = re.sub(r'\b\d+\.\d+\b', 'x.x', value)
+                        value = re.sub(r'\b\d+\b', 'xxxx', value)
+                    return value
+        """
+        if not callable(masking_func):
+            raise TypeError("masking_func must be a callable")
+
+        def recursive_mask_values(obj, parent_key=None):
+            """Apply masking to all values in nested structure."""
+            if isinstance(obj, dict):
+                return {k: recursive_mask_values(v, k) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [recursive_mask_values(item, parent_key) for item in obj]
+            elif isinstance(obj, str):
+                # List of keys that should NOT be masked
+                excluded_keys = {
+                    'start_time', 'end_time', 'name', 'id', 
+                    'hash_id', 'parent_id', 'source_hash_id',
+                    'cost', 'type', 'feedback', 'error', 'ctx','telemetry.sdk.version',
+                    'telemetry.sdk.language','service.name'
+                }
+                # Apply masking only if the key is NOT in the excluded list
+                if parent_key and parent_key.lower() not in excluded_keys:
+                    return masking_func(obj)
+                return obj
+            else:
+                return obj
+
+        def file_post_processor(original_trace_json_path: os.PathLike) -> os.PathLike:
+            original_path = Path(original_trace_json_path)
+            
+            # Read original JSON data
+            with open(original_path, 'r') as f:
+                data = json.load(f)
+            
+            # Apply masking only to data['data']
+            data['data'] = recursive_mask_values(data['data'])
+            
+            # Create new filename with 'processed_' prefix in /var/tmp/
+            new_filename = f"processed_{original_path.name}"
+            final_trace_json_path = Path("/var/tmp") / new_filename
+            
+            # Write modified data to the new file
+            with open(final_trace_json_path, 'w') as f:
+                json.dump(data, f, indent=4)
+            
+            logger.debug(f"Created masked trace file: {final_trace_json_path}")
+            return final_trace_json_path
+
+        # Register the created post-processor
+        self.register_post_processor(file_post_processor)
+        logger.debug("Masking function registered successfully as post-processor")
+
+    
+    def register_post_processor(self, post_processor_func):
+        """
+        Register a post-processing function that will be called after trace generation.
+        
+        Args:
+            post_processor_func (callable): A function that takes a trace JSON file path as input
+                and returns a processed trace JSON file path.
+                The function signature should be:
+                def post_processor_func(original_trace_json_path: os.PathLike) -> os.PathLike
+        """
+        if not callable(post_processor_func):
+            raise TypeError("post_processor_func must be a callable")
+        self.post_processor = post_processor_func
+        # Register in parent AgenticTracing class
+        super().register_post_processor(post_processor_func)
+        # Update DynamicTraceExporter's post-processor if it exists
+        if hasattr(self, 'dynamic_exporter'):
+            self.dynamic_exporter._exporter.post_processor = post_processor_func
+            self.dynamic_exporter._post_processor = post_processor_func
+        logger.info("Registered post process as: "+str(post_processor_func))
+    
+
     def set_dataset_name(self, dataset_name):
         """
         Reinitialize the Tracer with a new dataset name while keeping all other parameters the same.
@@ -474,7 +565,6 @@ class Tracer(AgenticTracing):
         if self.tracer_type == "langchain":
             super().stop()
             return self
-
         elif self.tracer_type == "llamaindex":
             if self.llamaindex_tracer is None:
                 raise ValueError("LlamaIndex tracer was not started")
@@ -486,8 +576,18 @@ class Tracer(AgenticTracing):
             with open(filepath_3, 'w') as f:
                 json.dump(converted_back_to_callback, f, default=str, indent=2)
 
+            # Apply post-processor if registered
+            if self.post_processor is not None:
+                try:
+                    final_trace_filepath = self.post_processor(filepath_3)
+                    logger.debug(f"Post-processor applied successfully, new path: {filepath_3}")
+                except Exception as e:
+                    logger.error(f"Error in post-processing: {e}")
+            else:
+                final_trace_filepath = filepath_3
+
             if converted_back_to_callback:
-                UploadTraces(json_file_path=filepath_3,
+                UploadTraces(json_file_path=final_trace_filepath,
                              project_name=self.project_name,
                              project_id=self.project_id,
                              dataset_name=self.dataset_name,
@@ -662,7 +762,8 @@ class Tracer(AgenticTracing):
             user_details=self.user_details,
             base_url=self.base_url,
             custom_model_cost=self.model_custom_cost,
-            timeout=self.timeout
+            timeout = self.timeout,
+            post_processor= self.post_processor
         )
         
         # Set up tracer provider

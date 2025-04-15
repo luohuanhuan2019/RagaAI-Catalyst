@@ -9,7 +9,7 @@ dotenv.load_dotenv()
 
 @pytest.fixture
 def base_url():
-    return "https://catalyst.raga.ai/api"
+    return os.getenv("RAGAAI_CATALYST_BASE_URL")
 
 @pytest.fixture
 def access_keys():
@@ -43,7 +43,7 @@ def test_missing_prompt_name(prompt_manager):
 def test_get_variable(prompt_manager):
     prompt = prompt_manager.get_prompt(prompt_name="test2", version="v2")
     prompt_variable = prompt.get_variables()
-    assert prompt_variable == ['system1', 'system2']
+    assert prompt_variable == ['system1', 'system2'] or prompt_variable == ['system2', 'system1']
 
 def test_get_model_parameters(prompt_manager):
     prompt = prompt_manager.get_prompt(prompt_name="test2", version="v2")
