@@ -144,4 +144,4 @@ class UploadTraces:
             self._insert_traces(presignedUrl)
             # print("Traces uploaded")
         except Exception as e:
-            print(f"Error while uploading agentic traces: {e}")
+            print(f"Error while uploading rag traces: {e}")

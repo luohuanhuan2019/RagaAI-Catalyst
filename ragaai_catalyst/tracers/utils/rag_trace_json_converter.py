@@ -15,7 +15,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
     trace_aggregate = {}
     
     def get_prompt(input_trace):
-        if tracer_type == "rag/langchain":
+        if tracer_type == "langchain":
             for span in input_trace:
                 if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
                     return span["attributes"].get("llm.input_messages.1.message.content")
@@ -32,7 +32,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
         return None
     
     def get_response(input_trace):
-        if tracer_type == "rag/langchain":
+        if tracer_type == "langchain":
             for span in input_trace:
                 if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
                     return span["attributes"].get("llm.output_messages.0.message.content")
@@ -46,7 +46,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
         return None
     
     def get_context(input_trace):
-        if tracer_type == "rag/langchain":
+        if tracer_type == "langchain":
             for span in input_trace:
                 if span["name"] == "VectorStoreRetriever":
                     return span["attributes"].get("retrieval.documents.1.document.content")
@@ -56,7 +56,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
     response = get_response(input_trace)
     context = get_context(input_trace)
     
-    if tracer_type == "rag/langchain":
+    if tracer_type == "langchain":
         trace_aggregate["tracer_type"] = "langchain"
     else:
         trace_aggregate["tracer_type"] = "llamaindex"
@@ -77,7 +77,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
     trace_aggregate["data"]["response"] = response
     trace_aggregate["data"]["context"] = context
     
-    if tracer_type == "rag/langchain":
+    if tracer_type == "langchain":
         additional_metadata = get_additional_metadata(input_trace, custom_model_cost, model_cost, prompt, response)
     else:
         additional_metadata = get_additional_metadata(input_trace, custom_model_cost, model_cost)

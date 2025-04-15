@@ -74,7 +74,7 @@ class RAGATraceExporter(SpanExporter):
     def process_complete_trace(self, spans, trace_id):
         # Convert the trace to ragaai trace format
         try:
-            if self.tracer_type == "rag/langchain":
+            if self.tracer_type == "langchain":
                 ragaai_trace_details, additional_metadata = self.prepare_rag_trace(spans, trace_id)
             else:
                 ragaai_trace_details = self.prepare_trace(spans, trace_id)
@@ -83,7 +83,7 @@ class RAGATraceExporter(SpanExporter):
         
         # Upload the trace if upload_trace function is provided
         try:
-            if self.tracer_type == "rag/langchain":
+            if self.tracer_type == "langchain":
                 asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
             else:
                 self.upload_trace(ragaai_trace_details, trace_id)
