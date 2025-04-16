@@ -143,6 +143,7 @@ class Tracer(AgenticTracing):
         self.file_tracker = TrackName()
         self.post_processor = None
         self.max_upload_workers = max_upload_workers
+        self.user_details = self._pass_user_data()
         
         try:
             response = requests.get(
@@ -503,7 +504,7 @@ class Tracer(AgenticTracing):
 
     def _improve_metadata(self, metadata, tracer_type):
         if metadata is None:
-            metadata = {}
+            metadata = {"metadata": {}}
         metadata.setdefault("log_source", f"{tracer_type}_tracer")
         metadata.setdefault("recorded_on", str(datetime.datetime.now()))
         return metadata
