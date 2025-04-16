@@ -24,6 +24,7 @@ from ragaai_catalyst.tracers.exporters.raga_exporter import RagaExporter
 from ragaai_catalyst.tracers.utils import get_unique_key
 # from ragaai_catalyst.tracers.llamaindex_callback import LlamaIndexTracer
 from ragaai_catalyst.tracers.llamaindex_instrumentation import LlamaIndexInstrumentationTracer
+from openinference.instrumentation.langchain import LangChainInstrumentor
 from ragaai_catalyst import RagaAICatalyst
 from ragaai_catalyst.tracers.agentic_tracing import AgenticTracing
 from ragaai_catalyst.tracers.agentic_tracing.tracers.llm_tracer import LLMTracerMixin
@@ -41,6 +42,7 @@ class Tracer(AgenticTracing):
         self,
         project_name,
         dataset_name,
+        external_id=None,
         trace_name=None,
         tracer_type=None,
         pipeline=None,
@@ -127,6 +129,7 @@ class Tracer(AgenticTracing):
 
         self.project_name = project_name
         self.dataset_name = dataset_name
+        self.external_id = external_id
         self.tracer_type = tracer_type
         self.metadata = self._improve_metadata(metadata, tracer_type)
         # self.metadata["total_cost"] = 0.0
@@ -143,6 +146,8 @@ class Tracer(AgenticTracing):
         self.file_tracker = TrackName()
         self.post_processor = None
         self.max_upload_workers = max_upload_workers
+        self.update_llm_cost = update_llm_cost
+        self.auto_instrumentation = auto_instrumentation
         
         try:
             response = requests.get(
@@ -460,6 +465,30 @@ class Tracer(AgenticTracing):
             self.dynamic_exporter._exporter.post_processor = post_processor_func
             self.dynamic_exporter._post_processor = post_processor_func
         logger.info("Registered post process as: "+str(post_processor_func))
+
+    
+    def set_external_id(self, external_id):
+        current_params = {
+            'project_name': self.project_name,
+            'dataset_name': self.dataset_name,
+            'trace_name': self.trace_name,
+            'tracer_type': self.tracer_type,
+            'pipeline': self.pipeline,
+            'metadata': self.metadata,
+            'description': self.description,
+            'timeout': self.timeout,
+            'update_llm_cost': self.update_llm_cost,
+            'auto_instrumentation': self.auto_instrumentation,
+            'interval_time': self.interval_time,
+            'max_upload_workers': self.max_upload_workers
+        }
+
+        # Reinitialize self with new external_id and stored parameters
+        self.__init__(
+            external_id=external_id,
+            **current_params
+        )
+
     
 
     def set_dataset_name(self, dataset_name):
@@ -485,15 +514,20 @@ class Tracer(AgenticTracing):
             # Also update the user_details in the dynamic exporter
             self.dynamic_exporter.user_details = self.user_details
         else:
-            # Store current parameters
             current_params = {
-                'project_name': self.project_name,
-                'tracer_type': self.tracer_type,
-                'pipeline': self.pipeline,
-                'metadata': self.metadata,
-                'description': self.description,
-                'timeout': self.timeout
-            }
+            'project_name': self.project_name,
+            'external_id': self.external_id,
+            'trace_name': self.trace_name,
+            'tracer_type': self.tracer_type,
+            'pipeline': self.pipeline,
+            'metadata': self.metadata,
+            'description': self.description,
+            'timeout': self.timeout,
+            'update_llm_cost': self.update_llm_cost,
+            'auto_instrumentation': self.auto_instrumentation,
+            'interval_time': self.interval_time,
+            'max_upload_workers': self.max_upload_workers
+        }
             
             # Reinitialize self with new dataset_name and stored parameters
             self.__init__(
@@ -760,6 +794,7 @@ class Tracer(AgenticTracing):
             files_to_zip=list_of_unique_files,
             project_name=self.project_name,
             project_id=self.project_id,
+            external_id=self.external_id,
             dataset_name=self.dataset_name,
             user_details=self.user_details,
             base_url=self.base_url,
@@ -775,7 +810,15 @@ class Tracer(AgenticTracing):
         
         # Instrument all specified instrumentors
         for instrumentor_class, args in instrumentors:
-            instrumentor_class().instrument(tracer_provider=tracer_provider, *args)
+            # Create an instance of the instrumentor
+            instrumentor = instrumentor_class()
+            
+            # Uninstrument only if it is already instrumented
+            if isinstance(instrumentor, LangChainInstrumentor) and instrumentor._is_instrumented_by_opentelemetry:
+                instrumentor.uninstrument()
+            
+            # Instrument with the provided tracer provider and arguments
+            instrumentor.instrument(tracer_provider=tracer_provider, *args)
             
     def update_file_list(self):
         """

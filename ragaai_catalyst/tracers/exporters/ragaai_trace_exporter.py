@@ -26,13 +26,14 @@ logging_level = (
 
 
 class RAGATraceExporter(SpanExporter):
-    def __init__(self, tracer_type, files_to_zip, project_name, project_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None, max_upload_workers = 30):
+    def __init__(self, tracer_type, files_to_zip, project_name, project_id, external_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None, max_upload_workers = 30):
         self.trace_spans = dict()
         self.tmp_dir = tempfile.gettempdir()
         self.tracer_type = tracer_type
         self.files_to_zip = files_to_zip
         self.project_name = project_name
         self.project_id = project_id
+        self.external_id = external_id
         self.dataset_name = dataset_name
         self.user_details = user_details
         self.base_url = base_url
@@ -185,10 +186,12 @@ class RAGATraceExporter(SpanExporter):
     
     async def upload_rag_trace(self, ragaai_trace, additional_metadata, trace_id):
         try:
+            ragaai_trace[0]['external_id'] = self.external_id
             trace_file_path = os.path.join(self.tmp_dir, f"{trace_id}.json")
             with open(trace_file_path, 'w') as f:
                 json.dump(ragaai_trace, f, indent=2)
-            
+            logger.info(f"Trace file saved at {trace_file_path}")
+
             # Create a ThreadPoolExecutor with max_workers=30
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_upload_workers) as executor:
                 # Create a partial function with all the necessary arguments
