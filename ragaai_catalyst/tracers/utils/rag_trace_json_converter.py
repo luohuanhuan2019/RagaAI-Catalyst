@@ -11,9 +11,8 @@ logging_level = (
     logger.setLevel(logging.DEBUG) if os.getenv("DEBUG") == "1" else logging.INFO
 )
 
-def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_details, tracer_type):
+def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_details, tracer_type,user_context):
     trace_aggregate = {}
-    
     def get_prompt(input_trace):
         if tracer_type == "langchain":
             for span in input_trace:
@@ -46,7 +45,9 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
         return None
     
     def get_context(input_trace):
-        if tracer_type == "langchain":
+        if user_context.strip():
+            return user_context
+        elif tracer_type == "langchain":
             for span in input_trace:
                 if span["name"] == "VectorStoreRetriever":
                     return span["attributes"].get("retrieval.documents.1.document.content")
