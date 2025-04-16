@@ -42,7 +42,6 @@ class Tracer(AgenticTracing):
         self,
         project_name,
         dataset_name,
-        external_id=None,
         trace_name=None,
         tracer_type=None,
         pipeline=None,
@@ -61,7 +60,8 @@ class Tracer(AgenticTracing):
         },
         interval_time=2,
         # auto_instrumentation=True/False  # to control automatic instrumentation of everything
-        max_upload_workers=30
+        max_upload_workers=30,
+        external_id=None
 
     ):
         """
@@ -129,7 +129,6 @@ class Tracer(AgenticTracing):
 
         self.project_name = project_name
         self.dataset_name = dataset_name
-        self.external_id = external_id
         self.tracer_type = tracer_type
         self.metadata = self._improve_metadata(metadata, tracer_type)
         # self.metadata["total_cost"] = 0.0
@@ -148,6 +147,7 @@ class Tracer(AgenticTracing):
         self.max_upload_workers = max_upload_workers
         self.update_llm_cost = update_llm_cost
         self.auto_instrumentation = auto_instrumentation
+        self.external_id = external_id
         
         try:
             response = requests.get(
@@ -516,7 +516,6 @@ class Tracer(AgenticTracing):
         else:
             current_params = {
             'project_name': self.project_name,
-            'external_id': self.external_id,
             'trace_name': self.trace_name,
             'tracer_type': self.tracer_type,
             'pipeline': self.pipeline,
@@ -526,7 +525,8 @@ class Tracer(AgenticTracing):
             'update_llm_cost': self.update_llm_cost,
             'auto_instrumentation': self.auto_instrumentation,
             'interval_time': self.interval_time,
-            'max_upload_workers': self.max_upload_workers
+            'max_upload_workers': self.max_upload_workers,
+            'external_id': self.external_id
         }
             
             # Reinitialize self with new dataset_name and stored parameters
@@ -794,14 +794,14 @@ class Tracer(AgenticTracing):
             files_to_zip=list_of_unique_files,
             project_name=self.project_name,
             project_id=self.project_id,
-            external_id=self.external_id,
             dataset_name=self.dataset_name,
             user_details=self.user_details,
             base_url=self.base_url,
             custom_model_cost=self.model_custom_cost,
             timeout = self.timeout,
             post_processor= self.post_processor,
-            max_upload_workers = self.max_upload_workers
+            max_upload_workers = self.max_upload_workers,
+             external_id=self.external_id
         )
         
         # Set up tracer provider

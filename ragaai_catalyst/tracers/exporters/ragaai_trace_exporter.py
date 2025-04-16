@@ -26,14 +26,13 @@ logging_level = (
 
 
 class RAGATraceExporter(SpanExporter):
-    def __init__(self, tracer_type, files_to_zip, project_name, project_id, external_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None, max_upload_workers = 30):
+    def __init__(self, tracer_type, files_to_zip, project_name, project_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None, max_upload_workers = 30, external_id=None):
         self.trace_spans = dict()
         self.tmp_dir = tempfile.gettempdir()
         self.tracer_type = tracer_type
         self.files_to_zip = files_to_zip
         self.project_name = project_name
         self.project_id = project_id
-        self.external_id = external_id
         self.dataset_name = dataset_name
         self.user_details = user_details
         self.base_url = base_url
@@ -42,6 +41,7 @@ class RAGATraceExporter(SpanExporter):
         self.timeout = timeout
         self.post_processor = post_processor
         self.max_upload_workers = max_upload_workers
+        self.external_id = external_id
 
     def export(self, spans):
         for span in spans:
