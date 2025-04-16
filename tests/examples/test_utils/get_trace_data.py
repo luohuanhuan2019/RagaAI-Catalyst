@@ -4,17 +4,19 @@ import json
 import subprocess
 import logging
 from typing import Dict, Optional, List
+from dotenv import load_dotenv
+# Load environment variables from .env file
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def run_command(command, cwd: Optional[str] = None):
-    command_in_debug = 'DEBUG=1 {}'.format(command)
     cwd = cwd or os.getcwd()
-    logger.info(f"Running command: {command_in_debug} in cwd: {cwd}")
+    logger.info(f"Running command: {command} in cwd: {cwd}")
     try:
         result = subprocess.run(
-            command_in_debug,
+            command,
             shell=True,
             cwd=cwd,
             check=True,
