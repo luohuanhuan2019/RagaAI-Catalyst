@@ -26,7 +26,7 @@ logging_level = (
 
 
 class RAGATraceExporter(SpanExporter):
-    def __init__(self, tracer_type, files_to_zip, project_name, project_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None, max_upload_workers = 30, external_id=None):
+    def __init__(self, tracer_type, files_to_zip, project_name, project_id, dataset_name, user_details, base_url, custom_model_cost, timeout=120, post_processor = None, max_upload_workers = 30,user_context = None, external_id=None):
         self.trace_spans = dict()
         self.tmp_dir = tempfile.gettempdir()
         self.tracer_type = tracer_type
@@ -41,6 +41,7 @@ class RAGATraceExporter(SpanExporter):
         self.timeout = timeout
         self.post_processor = post_processor
         self.max_upload_workers = max_upload_workers
+        self.user_context = user_context
         self.external_id = external_id
 
     def export(self, spans):
@@ -87,12 +88,33 @@ class RAGATraceExporter(SpanExporter):
                 ragaai_trace_details = self.prepare_trace(spans, trace_id)
         except Exception as e:
             print(f"Error converting trace {trace_id}: {e}")
+            return  # Exit early if conversion fails
+            
+        # Check if trace details are None (conversion failed)
+        if ragaai_trace_details is None:
+            logger.error(f"Cannot upload trace {trace_id}: conversion failed and returned None")
+            return  # Exit early if conversion failed
+            
         # Upload the trace if upload_trace function is provided
         try:
             if self.post_processor!=None:
                 ragaai_trace_details['trace_file_path'] = self.post_processor(ragaai_trace_details['trace_file_path'])
             if self.tracer_type == "langchain":
-                asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                # Check if we're already in an event loop
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # We're in a running event loop (like in Colab/Jupyter)
+                        # Create a future and run the coroutine
+                        future = asyncio.ensure_future(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                        # We don't wait for it to complete as this would block the event loop
+                        logger.info(f"Scheduled async upload for trace {trace_id} in existing event loop")
+                    else:
+                        # No running event loop, use asyncio.run()
+                        asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                except RuntimeError:
+                    # No event loop exists, create one
+                    asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
             else:
                 self.upload_trace(ragaai_trace_details, trace_id)
         except Exception as e:
@@ -236,7 +258,7 @@ class RAGATraceExporter(SpanExporter):
     
     def prepare_rag_trace(self, spans, trace_id):
         try:            
-            ragaai_trace, additional_metadata = rag_trace_json_converter(spans, self.custom_model_cost, trace_id, self.user_details, self.tracer_type)
+            ragaai_trace, additional_metadata = rag_trace_json_converter(spans, self.custom_model_cost, trace_id, self.user_details, self.tracer_type,self.user_context)
             ragaai_trace["metadata"]["recorded_on"] = datetime.datetime.now().astimezone().isoformat()
             ragaai_trace["metadata"]["log_source"] = "langchain_tracer"
 
