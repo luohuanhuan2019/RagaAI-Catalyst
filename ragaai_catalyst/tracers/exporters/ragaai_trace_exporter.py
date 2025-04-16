@@ -91,7 +91,21 @@ class RAGATraceExporter(SpanExporter):
             if self.post_processor!=None:
                 ragaai_trace_details['trace_file_path'] = self.post_processor(ragaai_trace_details['trace_file_path'])
             if self.tracer_type == "langchain":
-                asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                # Check if we're already in an event loop
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # We're in a running event loop (like in Colab/Jupyter)
+                        # Create a future and run the coroutine
+                        future = asyncio.ensure_future(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                        # We don't wait for it to complete as this would block the event loop
+                        logger.info(f"Scheduled async upload for trace {trace_id} in existing event loop")
+                    else:
+                        # No running event loop, use asyncio.run()
+                        asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                except RuntimeError:
+                    # No event loop exists, create one
+                    asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
             else:
                 self.upload_trace(ragaai_trace_details, trace_id)
         except Exception as e:
