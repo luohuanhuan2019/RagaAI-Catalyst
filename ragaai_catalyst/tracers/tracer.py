@@ -801,7 +801,7 @@ class Tracer(AgenticTracing):
             timeout = self.timeout,
             post_processor= self.post_processor,
             max_upload_workers = self.max_upload_workers,
-             external_id=self.external_id
+            external_id=self.external_id
         )
         
         # Set up tracer provider
