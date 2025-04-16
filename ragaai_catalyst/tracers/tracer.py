@@ -143,6 +143,7 @@ class Tracer(AgenticTracing):
         self.file_tracker = TrackName()
         self.post_processor = None
         self.max_upload_workers = max_upload_workers
+        self.user_details = self._pass_user_data()
         
         try:
             response = requests.get(
@@ -503,7 +504,7 @@ class Tracer(AgenticTracing):
 
     def _improve_metadata(self, metadata, tracer_type):
         if metadata is None:
-            metadata = {}
+            metadata = {"metadata": {}}
         metadata.setdefault("log_source", f"{tracer_type}_tracer")
         metadata.setdefault("recorded_on", str(datetime.datetime.now()))
         return metadata
@@ -766,7 +767,8 @@ class Tracer(AgenticTracing):
             custom_model_cost=self.model_custom_cost,
             timeout = self.timeout,
             post_processor= self.post_processor,
-            max_upload_workers = self.max_upload_workers
+            max_upload_workers = self.max_upload_workers,
+            user_context = self.user_context
         )
         
         # Set up tracer provider
@@ -810,6 +812,7 @@ class Tracer(AgenticTracing):
         
         # Convert string context to string if needed
         if isinstance(context, str):
+            self.dynamic_exporter.user_context = context
             self.user_context = context
         else:
             raise TypeError("context must be a string")
