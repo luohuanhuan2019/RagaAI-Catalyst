@@ -1,0 +1,11 @@
+Query,Response,Context,ExpectedResponse
+"What's the capital of France?","Paris","Geography question","The capital of France is Paris"
+"How do I reset my password?","Click 'Forgot Password' on login page","Tech support","Please visit account settings to reset"
+"What time does the store close?","We close at 9 PM","Customer service","Store hours are 9 AM to 9 PM"
+"Best Italian restaurant nearby?","Mama Mia on 5th Ave","Local recommendations","Top-rated is Trattoria Romana"
+"How to make pancakes?","Mix flour, eggs, and milk","Cooking advice","Combine dry ingredients first"
+"What's Python used for?","Web development and data science","Programming","Python is versatile for many applications"
+"Where is my order?","Tracking shows delivery tomorrow","E-commerce","Your package is in transit"
+"How old is the president?","The current president is 78","Politics","Age information is publicly available"
+"Recommended workout routine?","30 mins cardio 3x/week","Fitness advice","Consult a trainer for personalized plan"
+"What's the weather today?","Sunny with a high of 75°F","Weather forecast","Check local stations for updates"

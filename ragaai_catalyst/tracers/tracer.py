@@ -6,7 +6,7 @@ import asyncio
 import aiohttp
 import requests
 from litellm import model_cost
-
+from pathlib import Path
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from ragaai_catalyst.tracers.langchain_callback import LangchainTracer
@@ -24,6 +24,7 @@ from ragaai_catalyst.tracers.exporters.raga_exporter import RagaExporter
 from ragaai_catalyst.tracers.utils import get_unique_key
 # from ragaai_catalyst.tracers.llamaindex_callback import LlamaIndexTracer
 from ragaai_catalyst.tracers.llamaindex_instrumentation import LlamaIndexInstrumentationTracer
+from openinference.instrumentation.langchain import LangChainInstrumentor
 from ragaai_catalyst import RagaAICatalyst
 from ragaai_catalyst.tracers.agentic_tracing import AgenticTracing
 from ragaai_catalyst.tracers.agentic_tracing.tracers.llm_tracer import LLMTracerMixin
@@ -59,6 +60,8 @@ class Tracer(AgenticTracing):
         },
         interval_time=2,
         # auto_instrumentation=True/False  # to control automatic instrumentation of everything
+        max_upload_workers=30,
+        external_id=None
 
     ):
         """
@@ -71,7 +74,7 @@ class Tracer(AgenticTracing):
             pipeline (dict, optional): The pipeline configuration. Defaults to None.
             metadata (dict, optional): The metadata. Defaults to None.
             description (str, optional): The description. Defaults to None.
-            timeout (int, optional): The upload timeout in seconds. Defaults to 30.
+            timeout (int, optional): The upload timeout in seconds. Defaults to 120.
             update_llm_cost (bool, optional): Whether to update model costs from GitHub. Defaults to True.
         """
 
@@ -134,11 +137,18 @@ class Tracer(AgenticTracing):
         self.description = description
         self.timeout = timeout
         self.base_url = f"{RagaAICatalyst.BASE_URL}"
+        self.timeout = timeout
         self.num_projects = 99999
         self.start_time = datetime.datetime.now().astimezone().isoformat()
         self.model_cost_dict = model_cost
         self.user_context = ""  # Initialize user_context to store context from add_context
         self.file_tracker = TrackName()
+        self.post_processor = None
+        self.max_upload_workers = max_upload_workers
+        self.user_details = self._pass_user_data()
+        self.update_llm_cost = update_llm_cost
+        self.auto_instrumentation = auto_instrumentation
+        self.external_id = external_id
         
         try:
             response = requests.get(
@@ -169,16 +179,18 @@ class Tracer(AgenticTracing):
             raise
 
         if tracer_type == "langchain":
-            # self.raga_client = RagaExporter(project_name=self.project_name, dataset_name=self.dataset_name)
-
-            # self._tracer_provider = self._setup_provider()
-            # self._instrumentor = self._setup_instrumentor(tracer_type)
-            # self.is_instrumented = False
-            # self._upload_task = None
-            self._upload_task = None
+            instrumentors = []
+            from openinference.instrumentation.langchain import LangChainInstrumentor
+            instrumentors += [(LangChainInstrumentor, [])]
+            self._setup_agentic_tracer(instrumentors)
         elif tracer_type == "llamaindex":
             self._upload_task = None
             self.llamaindex_tracer = None
+        elif tracer_type == "rag/langchain":
+            instrumentors = []
+            from openinference.instrumentation.langchain import LangChainInstrumentor
+            instrumentors += [(LangChainInstrumentor, [])]
+            self._setup_agentic_tracer(instrumentors)
         # Handle agentic tracers
         elif tracer_type == "agentic" or tracer_type.startswith("agentic/"):
             
@@ -367,6 +379,119 @@ class Tracer(AgenticTracing):
             "output_cost_per_token": float(cost_config["output_cost_per_million_token"]) /1000000
         }
 
+    def register_masking_function(self, masking_func):
+        """
+        Register a masking function that will be used to transform values in the trace data.
+        This method handles all file operations internally and creates a post-processor
+        using the provided masking function.
+        
+        Args:
+            masking_func (callable): A function that takes a value and returns the masked value.
+                The function should handle string transformations for masking sensitive data.
+                
+                Example:
+                def masking_function(value):
+                    if isinstance(value, str):
+                        value = re.sub(r'\b\d+\.\d+\b', 'x.x', value)
+                        value = re.sub(r'\b\d+\b', 'xxxx', value)
+                    return value
+        """
+        if not callable(masking_func):
+            raise TypeError("masking_func must be a callable")
+
+        def recursive_mask_values(obj, parent_key=None):
+            """Apply masking to all values in nested structure."""
+            if isinstance(obj, dict):
+                return {k: recursive_mask_values(v, k) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [recursive_mask_values(item, parent_key) for item in obj]
+            elif isinstance(obj, str):
+                # List of keys that should NOT be masked
+                excluded_keys = {
+                    'start_time', 'end_time', 'name', 'id', 
+                    'hash_id', 'parent_id', 'source_hash_id',
+                    'cost', 'type', 'feedback', 'error', 'ctx','telemetry.sdk.version',
+                    'telemetry.sdk.language','service.name'
+                }
+                # Apply masking only if the key is NOT in the excluded list
+                if parent_key and parent_key.lower() not in excluded_keys:
+                    return masking_func(obj)
+                return obj
+            else:
+                return obj
+
+        def file_post_processor(original_trace_json_path: os.PathLike) -> os.PathLike:
+            original_path = Path(original_trace_json_path)
+            
+            # Read original JSON data
+            with open(original_path, 'r') as f:
+                data = json.load(f)
+            
+            # Apply masking only to data['data']
+            data['data'] = recursive_mask_values(data['data'])
+            
+            # Create new filename with 'processed_' prefix in /var/tmp/
+            new_filename = f"processed_{original_path.name}"
+            final_trace_json_path = Path("/var/tmp") / new_filename
+            
+            # Write modified data to the new file
+            with open(final_trace_json_path, 'w') as f:
+                json.dump(data, f, indent=4)
+            
+            logger.debug(f"Created masked trace file: {final_trace_json_path}")
+            return final_trace_json_path
+
+        # Register the created post-processor
+        self.register_post_processor(file_post_processor)
+        logger.debug("Masking function registered successfully as post-processor")
+
+    
+    def register_post_processor(self, post_processor_func):
+        """
+        Register a post-processing function that will be called after trace generation.
+        
+        Args:
+            post_processor_func (callable): A function that takes a trace JSON file path as input
+                and returns a processed trace JSON file path.
+                The function signature should be:
+                def post_processor_func(original_trace_json_path: os.PathLike) -> os.PathLike
+        """
+        if not callable(post_processor_func):
+            raise TypeError("post_processor_func must be a callable")
+        self.post_processor = post_processor_func
+        # Register in parent AgenticTracing class
+        super().register_post_processor(post_processor_func)
+        # Update DynamicTraceExporter's post-processor if it exists
+        if hasattr(self, 'dynamic_exporter'):
+            self.dynamic_exporter._exporter.post_processor = post_processor_func
+            self.dynamic_exporter._post_processor = post_processor_func
+        logger.info("Registered post process as: "+str(post_processor_func))
+
+    
+    def set_external_id(self, external_id):
+        current_params = {
+            'project_name': self.project_name,
+            'dataset_name': self.dataset_name,
+            'trace_name': self.trace_name,
+            'tracer_type': self.tracer_type,
+            'pipeline': self.pipeline,
+            'metadata': self.metadata,
+            'description': self.description,
+            'timeout': self.timeout,
+            'update_llm_cost': self.update_llm_cost,
+            'auto_instrumentation': self.auto_instrumentation,
+            'interval_time': self.interval_time,
+            'max_upload_workers': self.max_upload_workers
+        }
+
+        # Reinitialize self with new external_id and stored parameters
+        self.__init__(
+            external_id=external_id,
+            **current_params
+        )
+
+    
+
     def set_dataset_name(self, dataset_name):
         """
         Reinitialize the Tracer with a new dataset name while keeping all other parameters the same.
@@ -390,15 +515,20 @@ class Tracer(AgenticTracing):
             # Also update the user_details in the dynamic exporter
             self.dynamic_exporter.user_details = self.user_details
         else:
-            # Store current parameters
             current_params = {
-                'project_name': self.project_name,
-                'tracer_type': self.tracer_type,
-                'pipeline': self.pipeline,
-                'metadata': self.metadata,
-                'description': self.description,
-                'timeout': self.timeout
-            }
+            'project_name': self.project_name,
+            'trace_name': self.trace_name,
+            'tracer_type': self.tracer_type,
+            'pipeline': self.pipeline,
+            'metadata': self.metadata,
+            'description': self.description,
+            'timeout': self.timeout,
+            'update_llm_cost': self.update_llm_cost,
+            'auto_instrumentation': self.auto_instrumentation,
+            'interval_time': self.interval_time,
+            'max_upload_workers': self.max_upload_workers,
+            'external_id': self.external_id
+        }
             
             # Reinitialize self with new dataset_name and stored parameters
             self.__init__(
@@ -408,7 +538,7 @@ class Tracer(AgenticTracing):
 
     def _improve_metadata(self, metadata, tracer_type):
         if metadata is None:
-            metadata = {}
+            metadata = {"metadata": {}}
         metadata.setdefault("log_source", f"{tracer_type}_tracer")
         metadata.setdefault("recorded_on", str(datetime.datetime.now()))
         return metadata
@@ -455,15 +585,14 @@ class Tracer(AgenticTracing):
     def start(self):
         """Start the tracer."""
         if self.tracer_type == "langchain":
-            # if not self.is_instrumented:
-            #     self._instrumentor().instrument(tracer_provider=self._tracer_provider)
-            #     self.is_instrumented = True
-            # print(f"Tracer started for project: {self.project_name}")
-            self.langchain_tracer = LangchainTracer()
-            return self.langchain_tracer.start()
+            super().start()
+            return self
         elif self.tracer_type == "llamaindex":
             self.llamaindex_tracer = LlamaIndexInstrumentationTracer(self._pass_user_data())
             return self.llamaindex_tracer.start()
+        elif self.tracer_type == "rag/langchain":
+            super().start()
+            return self
         else:
             super().start()
             return self
@@ -471,104 +600,8 @@ class Tracer(AgenticTracing):
     def stop(self):
         """Stop the tracer and initiate trace upload."""
         if self.tracer_type == "langchain":
-            # if not self.is_instrumented:
-            #     logger.warning("Tracer was not started. No traces to upload.")
-            #     return "No traces to upload"
-
-            # print("Stopping tracer and initiating trace upload...")
-            # self._cleanup()
-            # self._upload_task = self._run_async(self._upload_traces())
-            # self.is_active = False
-            # self.dataset_name = None
-            
-            user_detail = self._pass_user_data()
-            data, additional_metadata = self.langchain_tracer.stop()
-
-            # Add cost if possible
-            additional_metadata["cost"] = 0.0
-            if additional_metadata.get('model_name'):
-                try:
-                    if self.model_custom_cost.get(additional_metadata['model_name']):
-                        model_cost_data = self.model_custom_cost[additional_metadata['model_name']]
-                    else:
-                        model_cost_data = self.model_cost_dict[additional_metadata['model_name']]
-                    if 'tokens' in additional_metadata and all(k in additional_metadata['tokens'] for k in ['prompt', 'completion']):
-                        prompt_cost = additional_metadata["tokens"]["prompt"]*model_cost_data["input_cost_per_token"]
-                        completion_cost = additional_metadata["tokens"]["completion"]*model_cost_data["output_cost_per_token"]
-                        additional_metadata["cost"] = prompt_cost + completion_cost 
-
-                        additional_metadata["prompt_tokens"] = float(additional_metadata["tokens"].get("prompt", 0.0))
-                        additional_metadata["completion_tokens"] = float(additional_metadata["tokens"].get("completion", 0.0))
-
-                        logger.debug("Metadata added successfully")
-                    else:
-                        logger.warning("Token information missing in additional_metadata")
-
-                    if 'cost' in additional_metadata:
-                        additional_metadata["cost"] = float(additional_metadata["cost"])
-                    else:
-                        additional_metadata["cost"] = 0.0
-                        logger.warning("Total cost information not available")
-
-
-                except Exception as e:
-                    logger.warning(f"Error adding cost: {e}")
-            else:
-                logger.debug("Model name not available in additional_metadata, skipping cost calculation")
-            
-
-            # Safely remove tokens and cost dictionaries if they exist
-            additional_metadata.pop("tokens", None)
-
-            additional_metadata["model"] = additional_metadata.get("model_name", "")
-            
-            # Safely merge metadata
-            combined_metadata = {}
-            if user_detail.get('trace_user_detail', {}).get('metadata'):
-                combined_metadata.update(user_detail['trace_user_detail']['metadata'])
-            if additional_metadata:
-                combined_metadata.update(additional_metadata)
-                
-            model_cost_latency_metadata = {}
-            if additional_metadata:
-                model_cost_latency_metadata["model_name"] = additional_metadata.get("model_name", 0)
-                model_cost_latency_metadata["total_cost"] = additional_metadata.get("cost", 0)
-                model_cost_latency_metadata["total_latency"] = additional_metadata.get("latency", 0)
-                model_cost_latency_metadata["recorded_on"] = datetime.datetime.now().astimezone().isoformat()
-                combined_metadata.update(model_cost_latency_metadata)
-
-            langchain_traces = langchain_tracer_extraction(data, self.user_context)
-            final_result = convert_langchain_callbacks_output(langchain_traces)
-            
-            # Safely set required fields in final_result
-            if final_result and isinstance(final_result, list) and len(final_result) > 0:
-                final_result[0]['project_name'] = user_detail.get('project_name', '')
-                final_result[0]['trace_id'] = str(uuid.uuid4())
-                final_result[0]['session_id'] = None
-                final_result[0]['metadata'] = combined_metadata
-                final_result[0]['pipeline'] = user_detail.get('trace_user_detail', {}).get('pipeline')
-
-                filepath_3 = os.path.join(os.getcwd(), "final_result.json")
-                with open(filepath_3, 'w') as f:
-                    json.dump(final_result, f, indent=2)
-                
-                # print(filepath_3)
-            else:
-                logger.warning("No valid langchain traces found in final_result")
-
-            # additional_metadata_keys = list(additional_metadata.keys()) if additional_metadata else None
-            additional_metadata_dict = additional_metadata if additional_metadata else {}
-
-            UploadTraces(json_file_path=filepath_3,
-                         project_name=self.project_name,
-                         project_id=self.project_id,
-                         dataset_name=self.dataset_name,
-                         user_detail=self._pass_user_data(),
-                         base_url=self.base_url
-                         ).upload_traces(additional_metadata_keys=additional_metadata_dict)
-            
-            return 
-
+            super().stop()
+            return self
         elif self.tracer_type == "llamaindex":
             if self.llamaindex_tracer is None:
                 raise ValueError("LlamaIndex tracer was not started")
@@ -580,8 +613,18 @@ class Tracer(AgenticTracing):
             with open(filepath_3, 'w') as f:
                 json.dump(converted_back_to_callback, f, default=str, indent=2)
 
+            # Apply post-processor if registered
+            if self.post_processor is not None:
+                try:
+                    final_trace_filepath = self.post_processor(filepath_3)
+                    logger.debug(f"Post-processor applied successfully, new path: {filepath_3}")
+                except Exception as e:
+                    logger.error(f"Error in post-processing: {e}")
+            else:
+                final_trace_filepath = filepath_3
+
             if converted_back_to_callback:
-                UploadTraces(json_file_path=filepath_3,
+                UploadTraces(json_file_path=final_trace_filepath,
                              project_name=self.project_name,
                              project_id=self.project_id,
                              dataset_name=self.dataset_name,
@@ -589,6 +632,8 @@ class Tracer(AgenticTracing):
                              base_url=self.base_url
                              ).upload_traces()
             return 
+        elif self.tracer_type == "rag/langchain":
+            super().stop()
         else:
             super().stop()
 
@@ -746,6 +791,7 @@ class Tracer(AgenticTracing):
 
         # Create a dynamic exporter that allows property updates
         self.dynamic_exporter = DynamicTraceExporter(
+            tracer_type=self.tracer_type,
             files_to_zip=list_of_unique_files,
             project_name=self.project_name,
             project_id=self.project_id,
@@ -753,7 +799,11 @@ class Tracer(AgenticTracing):
             user_details=self.user_details,
             base_url=self.base_url,
             custom_model_cost=self.model_custom_cost,
-            timeout=self.timeout
+            timeout = self.timeout,
+            post_processor= self.post_processor,
+            max_upload_workers = self.max_upload_workers,
+            user_context = self.user_context,
+            external_id=self.external_id
         )
         
         # Set up tracer provider
@@ -762,7 +812,15 @@ class Tracer(AgenticTracing):
         
         # Instrument all specified instrumentors
         for instrumentor_class, args in instrumentors:
-            instrumentor_class().instrument(tracer_provider=tracer_provider, *args)
+            # Create an instance of the instrumentor
+            instrumentor = instrumentor_class()
+            
+            # Uninstrument only if it is already instrumented
+            if isinstance(instrumentor, LangChainInstrumentor) and instrumentor._is_instrumented_by_opentelemetry:
+                instrumentor.uninstrument()
+            
+            # Instrument with the provided tracer provider and arguments
+            instrumentor.instrument(tracer_provider=tracer_provider, *args)
             
     def update_file_list(self):
         """
@@ -797,6 +855,7 @@ class Tracer(AgenticTracing):
         
         # Convert string context to string if needed
         if isinstance(context, str):
+            self.dynamic_exporter.user_context = context
             self.user_context = context
         else:
             raise TypeError("context must be a string")
