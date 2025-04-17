@@ -1,0 +1,99 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            python -m pip install --upgrade pip
+            pip install ruff
+            pip install -e ".[dev]"
+          else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.cargo/bin:$PATH"
+            uv pip install --system ruff
+            uv pip install --system -e ".[dev]"
+          fi
+      - name: Format and lint with Ruff
+        run: |
+          # First run format to fix formatting issues
+          ruff format .
+          # Then run check with auto-fix for fixable issues
+          ruff check --fix .
+
+  test:
+    needs: code-quality
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    outputs:
+      test_summary: ${{ steps.pytest.outputs.test_summary }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            python -m pip install --upgrade pip
+            pip install pytest pytest-cov
+            pip install -r tests_requirements.txt
+            pip install -e ".[dev]"
+          else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.cargo/bin:$PATH"
+            uv pip install --system pytest pytest-cov
+            uv pip install --system -r tests_requirements.txt
+            uv pip install --system -e ".[dev]"
+          fi
+      - name: Test with pytest
+        id: pytest
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+          LOCATION: ${{ secrets.LOCATION }}
+          RAGAAI_CATALYST_BASE_URL: ${{ secrets.RAGAAI_CATALYST_BASE_URL }}
+          RAGAAI_CATALYST_ACCESS_KEY: ${{ secrets.RAGAAI_CATALYST_ACCESS_KEY }}
+          RAGAAI_CATALYST_SECRET_KEY: ${{ secrets.RAGAAI_CATALYST_SECRET_KEY }}
+          RAGAAI_PROJECT_NAME: ${{ secrets.RAGAAI_PROJECT_NAME }}
+          RAGAAI_DATASET_NAME: ${{ secrets.RAGAAI_DATASET_NAME }}_$(date +'%Y%m%d%H%M%S')
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          SERPERDEV_API_KEY: ${{ secrets.SERPERDEV_API_KEY }}
+        run: |
+          mkdir -p test-results
+          pytest tests/ -v --junitxml=test-results/junit.xml | tee test-output.txt
+          echo "test_summary<<EOF" >> $GITHUB_OUTPUT
+          echo "### Test Results for ${{ matrix.os }} - Python ${{ matrix.python-version }}" >> $GITHUB_OUTPUT
+          echo '```' >> $GITHUB_OUTPUT
+          cat test-output.txt | grep -E "collected|PASSED|FAILED|ERROR|SKIPPED" >> $GITHUB_OUTPUT
+          echo '```' >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT

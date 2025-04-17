@@ -69,7 +69,7 @@ class Dataset:
                 "Authorization": f"Bearer {os.getenv('RAGAAI_CATALYST_TOKEN')}",
                 "X-Project-Id": str(self.project_id),
             }
-            json_data = {"size": 12, "page": "0", "projectId": str(self.project_id), "search": ""}
+            json_data = {"size": 99999, "page": "0", "projectId": str(self.project_id), "search": ""}
             try:
                 response = requests.post(
                     f"{Dataset.BASE_URL}/v2/llm/dataset",
