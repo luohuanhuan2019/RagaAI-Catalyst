@@ -14,44 +14,65 @@ logging_level = (
 def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_details, tracer_type,user_context):
     trace_aggregate = {}
     def get_prompt(input_trace):
-        if tracer_type == "langchain":
-            for span in input_trace:
-                if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
-                    return span["attributes"].get("llm.input_messages.1.message.content")
+        try:
+            if tracer_type == "langchain":
+                for span in input_trace:
+                    if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI", "OpenAI", "ChatOpenAI_LangchainOpenAI", "ChatOpenAI_ChatModels",
+                                        "ChatVertexAI", "VertexAI", "ChatLiteLLM", "ChatBedrock", "AzureChatOpenAI", "ChatAnthropicVertex"]:
+                        return span["attributes"].get("llm.input_messages.1.message.content")
 
-                elif span["name"] == "LLMChain":
-                    return json.loads(span["attributes"].get("input.value", "{}")).get("question")
+                    elif span["name"] == "LLMChain":
+                        return json.loads(span["attributes"].get("input.value", "{}")).get("question")
 
-                elif span["name"] == "RetrievalQA":
-                    return span["attributes"].get("input.value")
-                
-                elif span["name"] == "VectorStoreRetriever":
-                    return span["attributes"].get("input.value")
-                
-        return None
+                    elif span["name"] == "RetrievalQA":
+                        return span["attributes"].get("input.value")
+                    
+                    elif span["name"] == "VectorStoreRetriever":
+                        return span["attributes"].get("input.value")
+            
+            logger.error("Prompt not found in the trace")
+            return None
+        except Exception as e:
+            logger.error(f"Error while extracting prompt from trace: {str(e)}")
+            return None
     
     def get_response(input_trace):
-        if tracer_type == "langchain":
-            for span in input_trace:
-                if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
-                    return span["attributes"].get("llm.output_messages.0.message.content")
+        try:
+            if tracer_type == "langchain":
+                for span in input_trace:
+                    if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI", "OpenAI", "ChatOpenAI_LangchainOpenAI", "ChatOpenAI_ChatModels",
+                                        "ChatVertexAI", "VertexAI", "ChatLiteLLM", "ChatBedrock", "AzureChatOpenAI", "ChatAnthropicVertex"]:
+                        return span["attributes"].get("llm.output_messages.0.message.content")
 
-                elif span["name"] == "LLMChain":
-                    return json.loads(span["attributes"].get("output.value", ""))
+                    elif span["name"] == "LLMChain":
+                        return json.loads(span["attributes"].get("output.value", ""))
 
-                elif span["name"] == "RetrievalQA":
-                    return span["attributes"].get("output.value")
-
-        return None
+                    elif span["name"] == "RetrievalQA":
+                        return span["attributes"].get("output.value")
+                
+                    elif span["name"] == "VectorStoreRetriever":
+                        return span["attributes"].get("output.value")
+            
+            logger.error("Response not found in the trace")
+            return None
+        except Exception as e:
+            logger.error(f"Error while extracting response from trace: {str(e)}")
+            return None
     
     def get_context(input_trace):
-        if user_context.strip():
-            return user_context
-        elif tracer_type == "langchain":
-            for span in input_trace:
-                if span["name"] == "VectorStoreRetriever":
-                    return span["attributes"].get("retrieval.documents.1.document.content")
-        return None
+        try:
+            if user_context.strip():
+                return user_context
+            elif tracer_type == "langchain":
+                for span in input_trace:
+                    if span["name"] == "VectorStoreRetriever":
+                        return span["attributes"].get("retrieval.documents.1.document.content")
+            
+            logger.error("Context not found in the trace")
+            return None
+        except Exception as e:
+            logger.error(f"Error while extracting context from trace: {str(e)}")
+            return None
         
     prompt = get_prompt(input_trace)
     response = get_response(input_trace)
@@ -65,14 +86,8 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
     trace_aggregate['trace_id'] = trace_id
     trace_aggregate['session_id'] = None
     trace_aggregate["metadata"] = user_details.get("trace_user_detail", {}).get("metadata")
+    trace_aggregate["pipeline"] = user_details.get("trace_user_detail", {}).get("pipeline")
 
-    #dummy data need to be fetched
-    trace_aggregate["pipeline"] = {
-        'llm_model': 'gpt-4o-mini', 
-        'vector_store': 'faiss',
-        'embed_model': 'text-embedding-ada-002'
-        }
-    
     trace_aggregate["data"] = {}
     trace_aggregate["data"]["prompt"] = prompt
     trace_aggregate["data"]["response"] = response
@@ -95,7 +110,8 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
     additional_metadata["tokens"] = {}
     try:
         for span in spans:
-            if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI"]:
+            if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI", "OpenAI", "ChatOpenAI_LangchainOpenAI", "ChatOpenAI_ChatModels",
+                                "ChatVertexAI", "VertexAI", "ChatLiteLLM", "ChatBedrock", "AzureChatOpenAI", "ChatAnthropicVertex"]:
                 start_time = datetime.fromisoformat(span.get("start_time", "")[:-1])  # Remove 'Z' and parse
                 end_time = datetime.fromisoformat(span.get("end_time", "")[:-1])    # Remove 'Z' and parse
                 additional_metadata["latency"] = (end_time - start_time).total_seconds()
