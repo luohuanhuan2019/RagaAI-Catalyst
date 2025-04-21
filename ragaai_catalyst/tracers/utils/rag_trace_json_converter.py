@@ -19,8 +19,13 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
                 for span in input_trace:
                     if span["name"] in ["ChatOpenAI", "ChatAnthropic", "ChatGoogleGenerativeAI", "OpenAI", "ChatOpenAI_LangchainOpenAI", "ChatOpenAI_ChatModels",
                                         "ChatVertexAI", "VertexAI", "ChatLiteLLM", "ChatBedrock", "AzureChatOpenAI", "ChatAnthropicVertex"]:
-                        return span["attributes"].get("llm.input_messages.1.message.content")
-
+                        try:
+                            return span["attributes"].get("llm.input_messages.1.message.content")
+                        except:
+                            logger.warning(f"Unable to extract prompt for span name: {span['name']}")
+                            logger.warning(f"Returning empty string for prompt.")
+                            return ""
+                            
                     elif span["name"] == "LLMChain":
                         return json.loads(span["attributes"].get("input.value", "{}")).get("question")
 
@@ -29,6 +34,11 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
                     
                     elif span["name"] == "VectorStoreRetriever":
                         return span["attributes"].get("input.value")
+                    
+                    else:
+                        logger.warning(f"Unknown span name: {span['name']}")
+                        logger.warning(f"Returning empty string for prompt.")
+                        return ""
             
             logger.error("Prompt not found in the trace")
             return None
