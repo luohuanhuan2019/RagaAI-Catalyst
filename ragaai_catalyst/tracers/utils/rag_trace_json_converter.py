@@ -35,6 +35,21 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
                                 except Exception as e:
                                     logger.warning(f"Error processing attribute key-value pair: {str(e)}")
                                     continue
+
+                            for key, value in attributes.items():
+                                try:
+                                    if key.startswith("llm.prompts") and isinstance(value, list):
+                                        human_message = None
+                                        for message in value:
+                                            if isinstance(message, str):
+                                                human_index = message.find("Human:")
+                                                if human_index != -1:
+                                                    human_message = message[human_index:]
+                                                    break
+                                        return human_message if human_message else value
+                                except Exception as e:
+                                    logger.warning(f"Error processing attribute key-value pair for prompt: {str(e)}")
+                                    continue
                     except Exception as e:
                         logger.warning(f"Error processing span for prompt extraction: {str(e)}")
                         continue
@@ -79,6 +94,23 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
                                 try:
                                     if key.startswith("llm.output_messages.") and key.endswith(".message.content"):
                                         return value
+                                except Exception as e:
+                                    logger.warning(f"Error processing attribute key-value pair for response: {str(e)}")
+                                    continue
+                            
+                            for key, value in attributes.items():
+                                try:
+                                    if key.startswith("output.value"):
+                                        try:
+                                            output_json = json.loads(value)
+                                            if "generations" in output_json and isinstance(output_json.get("generations"), list) and len(output_json.get("generations")) > 0:
+                                                if isinstance(output_json.get("generations")[0], list) and len(output_json.get("generations")[0]) > 0:
+                                                    first_generation = output_json.get("generations")[0][0]
+                                                    if "text" in first_generation:
+                                                        return first_generation["text"]
+                                        except json.JSONDecodeError:
+                                            logger.warning(f"Invalid JSON in output.value: {value}")
+                                            continue
                                 except Exception as e:
                                     logger.warning(f"Error processing attribute key-value pair for response: {str(e)}")
                                     continue
