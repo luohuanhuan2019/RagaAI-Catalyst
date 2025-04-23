@@ -44,7 +44,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
                                             if isinstance(message, str):
                                                 human_index = message.find("Human:")
                                                 if human_index != -1:
-                                                    human_message = message[human_index:]
+                                                    human_message = message[human_index+6:]
                                                     break
                                         return human_message if human_message else value
                                 except Exception as e:
