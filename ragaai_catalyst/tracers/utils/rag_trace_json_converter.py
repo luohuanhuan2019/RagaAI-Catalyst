@@ -364,7 +364,7 @@ def num_tokens_from_messages(model, message):
                     logger.warning("GOOGLE_API_KEY not found in environment variables")
                     return 0
                     
-                import google.generativeai as genai
+                from google import genai
                 client = genai.Client(api_key=GOOGLE_API_KEY)
 
                 response = client.models.count_tokens(
