@@ -299,96 +299,39 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
 
 def num_tokens_from_messages(model, message):
     try:
-        # Handle None or empty message
         if not message:
             logger.warning("Empty or None message provided to token counter")
             return 0
-            
-        # GPT models
-        if re.match(r'^gpt-', model):
-            """Check if the model is any GPT model (pattern: ^gpt-)
-            This matches any model name that starts with 'gpt-'
-            """
-            def num_tokens_from_string(string: str, encoding_name: str) -> int:
-                """Returns the number of tokens in a text string."""
-                try:
-                    encoding = tiktoken.get_encoding(encoding_name)
-                    num_tokens = len(encoding.encode(string))
-                    return num_tokens
-                except Exception as e:
-                    logger.warning(f"Error encoding with {encoding_name}: {str(e)}")
-                    # Fallback to a different encoding if the requested one fails
-                    try:
-                        fallback_encoding = tiktoken.get_encoding("cl100k_base")
-                        return len(fallback_encoding.encode(string))
-                    except:
-                        logger.error("Failed to use fallback encoding")
-                        return 0
-            
-            if re.match(r'^gpt-4o.*', model):
-                """Check for GPT-4 Optimized models (pattern: ^gpt-4o.*)
-                Examples that match:
-                - gpt-4o
-                - gpt-4o-mini
-                - gpt-4o-2024-08-06
-                The .* allows for any characters after 'gpt-4o'
-                """
-                encoding_name = "o200k_base"
-                return num_tokens_from_string(message, encoding_name)
-            
-            elif re.match(r'^gpt-(4|3\.5).*', model):
-                """Check for GPT-4 and GPT-3.5 models (pattern: ^gpt-(4|3\.5).*)
-                Uses cl100k_base encoding for GPT-4 and GPT-3.5 models
-                Examples that match:
-                - gpt-4
-                - gpt-4-turbo
-                - gpt-4-2024-08-06
-                - gpt-3.5-turbo
-                - gpt-3.5-turbo-16k
-                """
-                encoding_name = "cl100k_base"
-                return num_tokens_from_string(message, encoding_name)
-            
-            else:
-                """Default case for any other GPT models
-                Uses o200k_base encoding as the default tokenizer
-                """
-                return num_tokens_from_string(message, encoding_name="o200k_base")
-            
-
-        # Gemini models 
-        elif re.match(r'^gemini-', model):
-            try:
-                GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-                if not GOOGLE_API_KEY:
-                    logger.warning("GOOGLE_API_KEY not found in environment variables")
-                    return 0
-                    
-                from google import genai
-                client = genai.Client(api_key=GOOGLE_API_KEY)
-
-                response = client.models.count_tokens(
-                        model=model,
-                        contents=message,
-                    )
-                return response.total_tokens
-            except ImportError:
-                logger.warning("google.generativeai module not found. Install with pip install google-generativeai")
-                return 0
-            except Exception as e:
-                logger.warning(f"Error counting tokens for Gemini model: {str(e)}")
-                return 0
         
-        # Default case for unknown models
-        else:
-            logger.warning(f"Unknown model type: {model}. Using default token counter.")
+        def num_tokens_from_string(string: str, encoding_name: str) -> int:
+            """Returns the number of tokens in a text string."""
             try:
-                # Use cl100k_base as a fallback for unknown models
-                encoding = tiktoken.get_encoding("cl100k_base")
-                return len(encoding.encode(message))
-            except:
-                logger.error("Failed to use fallback encoding for unknown model")
-                return 0
+                encoding = tiktoken.get_encoding(encoding_name)
+                return len(encoding.encode(str(string)))
+            except Exception as e:
+                logger.warning(f"Error encoding with {encoding_name}: {str(e)}")
+                try:
+                    fallback_encoding = tiktoken.get_encoding("cl100k_base")
+                    return len(fallback_encoding.encode(str(string)))
+                except:
+                    logger.error("Failed to use fallback encoding")
+                    return 0
+        
+        # Determine which encoding to use based on model name
+        encoding_name = "o200k_base"  
+        
+        if re.match(r'^gpt-', model):
+            if re.match(r'^gpt-(4o|4\.1).*', model):
+                # GPT-4o and GPT-4.1 models
+                encoding_name = "o200k_base"
+            elif re.match(r'^gpt-(4|3\.5).*', model):
+                # GPT-4 and GPT-3.5 models
+                encoding_name = "cl100k_base"
+        else:
+            logger.warning(f"Using default token counter for: {model}.")
+            
+        return num_tokens_from_string(message, encoding_name)
+            
     except Exception as e:
         logger.error(f"Unexpected error in token counting: {str(e)}")
         return 0
