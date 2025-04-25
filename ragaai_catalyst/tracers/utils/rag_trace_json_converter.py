@@ -212,14 +212,14 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
                     additional_metadata["tokens"]["prompt"] = span["attributes"]["llm.token_count.prompt"]
 
                 except:
-                    logger.warning("Warning: prompt token not found. using fallback strategies to get tokens.")
+                    logger.debug("Warning: prompt token not found. using fallback strategies to get tokens.")
                     try:
                         additional_metadata["tokens"]["prompt"] = num_tokens_from_messages(
                             model=additional_metadata["model_name"],
                             message=prompt
                         )
                     except Exception as e:
-                        logger.warning(f"Failed to count prompt tokens: {str(e)}. Using 'gpt-4o-mini' model count as fallback.")
+                        logger.debug(f"Failed to count prompt tokens: {str(e)}. Using 'gpt-4o-mini' model count as fallback.")
                         additional_metadata["tokens"]["prompt"] = num_tokens_from_messages(
                             model="gpt-4o-mini",
                             message=prompt
@@ -228,14 +228,14 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
                 try:
                     additional_metadata["tokens"]["completion"] = span["attributes"]["llm.token_count.completion"]
                 except:
-                    logger.warning("Warning: completion token not found. using fallback strategies to get tokens.")
+                    logger.debug("Warning: completion token not found. using fallback strategies to get tokens.")
                     try:
                         additional_metadata["tokens"]["completion"] = num_tokens_from_messages(
                             model=additional_metadata["model_name"],
                             message=response
                         )
                     except Exception as e:
-                        logger.warning(f"Failed to count completion tokens: {str(e)}. Using 'gpt-4o-mini' model count as fallback.")
+                        logger.debug(f"Failed to count completion tokens: {str(e)}. Using 'gpt-4o-mini' model count as fallback.")
                         additional_metadata["tokens"]["completion"] = num_tokens_from_messages(
                             model="gpt-4o-mini",
                             message=response
@@ -300,21 +300,29 @@ def get_additional_metadata(spans, custom_model_cost, model_cost_dict, prompt=""
 def num_tokens_from_messages(model, message):
     try:
         if not message:
-            logger.warning("Empty or None message provided to token counter")
+            logger.error("Empty or None message provided to token counter")
             return 0
         
-        def num_tokens_from_string(string: str, encoding_name: str) -> int:
+        def num_tokens_from_string(text_content: str, encoding_name: str) -> int:
             """Returns the number of tokens in a text string."""
+            if isinstance(text_content, list):
+                list_str = str(text_content[0]) if text_content else ""
+                pattern = r"content=\'(.*?)\'(?:\s+additional_kwargs=|$)"
+                match = re.search(pattern, list_str, re.DOTALL)
+                if match:
+                    text_content = match.group(1)  # Extract content and process it for tokens
+                else:
+                    text_content = list_str 
             try:
                 encoding = tiktoken.get_encoding(encoding_name)
-                return len(encoding.encode(str(string)))
+                return len(encoding.encode(text_content))
             except Exception as e:
                 logger.warning(f"Error encoding with {encoding_name}: {str(e)}")
                 try:
                     fallback_encoding = tiktoken.get_encoding("cl100k_base")
-                    return len(fallback_encoding.encode(str(string)))
+                    return len(fallback_encoding.encode(text_content))
                 except:
-                    logger.error("Failed to use fallback encoding")
+                    logger.debug("Failed to use fallback encoding")
                     return 0
         
         # Determine which encoding to use based on model name
@@ -328,7 +336,7 @@ def num_tokens_from_messages(model, message):
                 # GPT-4 and GPT-3.5 models
                 encoding_name = "cl100k_base"
         else:
-            logger.warning(f"Using default token counter for: {model}.")
+            logger.debug(f"Using default token counter for: {model}.")
             
         return num_tokens_from_string(message, encoding_name)
             
