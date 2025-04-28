@@ -258,12 +258,18 @@ class RAGATraceExporter(SpanExporter):
     
     def prepare_rag_trace(self, spans, trace_id):
         try:            
+            # with open(os.path.join(os.getcwd(), "traces_with_error.json"), "w") as f:
+            #     json.dump(spans, f, indent=4)
             ragaai_trace, additional_metadata = rag_trace_json_converter(spans, self.custom_model_cost, trace_id, self.user_details, self.tracer_type,self.user_context)
             ragaai_trace["metadata"]["recorded_on"] = datetime.datetime.now().astimezone().isoformat()
             ragaai_trace["metadata"]["log_source"] = "langchain_tracer"
+            # with open(os.path.join(os.getcwd(), "traces_with_error_b4_callback.json"), "w") as f:
+            #     json.dump(ragaai_trace, f, indent=4)
 
             if True:
                 converted_ragaai_trace = convert_langchain_callbacks_output(ragaai_trace, self.project_name, ragaai_trace["metadata"], ragaai_trace["pipeline"])
+                with open(os.path.join(os.getcwd(), "traces_with_error_aftr_callback.json"), "w") as f:
+                    json.dump(converted_ragaai_trace, f, indent=4)
             else:
                 converted_ragaai_trace = ragaai_trace
             

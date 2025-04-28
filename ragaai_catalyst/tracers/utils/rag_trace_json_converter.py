@@ -164,10 +164,30 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
         except Exception as e:
             logger.error(f"Error while extracting context from trace: {str(e)}")
             return ""
-        
+    
+    def get_span_errors(input_trace):
+        try:
+            if tracer_type == "langchain":
+                span_errors = {}
+                for span in input_trace:
+                    try:
+                        if "status" in span.keys() and span.get("status", {}).get("status_code", "").lower() == "error":
+                            span_errors[f"{span['name']}"] = span["status"]
+                    except:
+                        logger.error(f"Error fetching status from span")
+                return span_errors
+        except:
+            logger.error(f"Error in get_span_errors")
+            return None
+
+
+
+
+
     prompt = get_prompt(input_trace)
     response = get_response(input_trace)
     context = get_context(input_trace)
+    error = get_span_errors(input_trace)
     
     if tracer_type == "langchain":
         trace_aggregate["tracer_type"] = "langchain"
@@ -183,6 +203,7 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
     trace_aggregate["data"]["prompt"] = prompt
     trace_aggregate["data"]["response"] = response
     trace_aggregate["data"]["context"] = context
+    trace_aggregate["error"] = error
     
     if tracer_type == "langchain":
         additional_metadata = get_additional_metadata(input_trace, custom_model_cost, model_cost, prompt, response)
