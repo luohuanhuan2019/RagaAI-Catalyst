@@ -212,6 +212,9 @@ def rag_trace_json_converter(input_trace, custom_model_cost, trace_id, user_deta
     
     trace_aggregate["metadata"] = user_details.get("trace_user_detail", {}).get("metadata")
     trace_aggregate["metadata"].update(additional_metadata)
+    trace_aggregate["metadata"]["error"] = f"{error}"
+    additional_metadata["error"] = error if error else None
+
     additional_metadata.pop("total_cost")
     additional_metadata.pop("total_latency")
     return trace_aggregate, additional_metadata
