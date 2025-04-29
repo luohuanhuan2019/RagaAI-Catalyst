@@ -427,8 +427,16 @@ class Tracer(AgenticTracing):
             with open(original_path, 'r') as f:
                 data = json.load(f)
             
-            # Apply masking only to data['data']
-            data['data'] = recursive_mask_values(data['data'])
+            # Apply masking only to data['data'] or in case of langchain rag apply on 'traces' field of each element
+            if 'data' in data:
+                data['data'] = recursive_mask_values(data['data'])
+            elif isinstance(data,list):
+                masked_traces = []
+                for item in data:
+                    if isinstance(item, dict) and 'traces' in item:
+                        masked = recursive_mask_values(item['traces'])
+                        masked_traces.extend(masked if isinstance(masked, list) else [masked])
+                data = masked_traces
             
             # Create new filename with 'processed_' prefix in /var/tmp/
             new_filename = f"processed_{original_path.name}"

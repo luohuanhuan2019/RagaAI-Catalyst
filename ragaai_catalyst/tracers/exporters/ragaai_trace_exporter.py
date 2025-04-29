@@ -18,6 +18,7 @@ import logging
 import asyncio
 import concurrent.futures
 from functools import partial
+import traceback
 
 logger = logging.getLogger("RagaAICatalyst")
 logging_level = (
@@ -89,7 +90,7 @@ class RAGATraceExporter(SpanExporter):
         except Exception as e:
             print(f"Error converting trace {trace_id}: {e}")
             return  # Exit early if conversion fails
-            
+
         # Check if trace details are None (conversion failed)
         if ragaai_trace_details is None:
             logger.error(f"Cannot upload trace {trace_id}: conversion failed and returned None")
@@ -97,7 +98,7 @@ class RAGATraceExporter(SpanExporter):
             
         # Upload the trace if upload_trace function is provided
         try:
-            if self.post_processor!=None:
+            if self.post_processor!=None and self.tracer_type != "langchain":
                 ragaai_trace_details['trace_file_path'] = self.post_processor(ragaai_trace_details['trace_file_path'])
             if self.tracer_type == "langchain":
                 # Check if we're already in an event loop
@@ -106,18 +107,18 @@ class RAGATraceExporter(SpanExporter):
                     if loop.is_running():
                         # We're in a running event loop (like in Colab/Jupyter)
                         # Create a future and run the coroutine
-                        future = asyncio.ensure_future(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                        future = asyncio.ensure_future(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id, self.post_processor))
                         # We don't wait for it to complete as this would block the event loop
                         logger.info(f"Scheduled async upload for trace {trace_id} in existing event loop")
                     else:
                         # No running event loop, use asyncio.run()
-                        asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                        asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id, self.post_processor))
                 except RuntimeError:
                     # No event loop exists, create one
-                    asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id))
+                    asyncio.run(self.upload_rag_trace(ragaai_trace_details, additional_metadata, trace_id, self.post_processor))
             else:
                 self.upload_trace(ragaai_trace_details, trace_id)
-        except Exception as e:
+        except Exception as e: 
             print(f"Error uploading trace {trace_id}: {e}")
 
     def prepare_trace(self, spans, trace_id):
@@ -206,13 +207,21 @@ class RAGATraceExporter(SpanExporter):
 
         logger.info(f"Submitted upload task with ID: {self.upload_task_id}")
     
-    async def upload_rag_trace(self, ragaai_trace, additional_metadata, trace_id):
+    async def upload_rag_trace(self, ragaai_trace, additional_metadata, trace_id, post_processor=None):
         try:
             ragaai_trace[0]['external_id'] = self.external_id
             trace_file_path = os.path.join(self.tmp_dir, f"{trace_id}.json")
             with open(trace_file_path, 'w') as f:
                 json.dump(ragaai_trace, f, indent=2)
             logger.info(f"Trace file saved at {trace_file_path}")
+            if self.post_processor!=None:
+                trace_file_path = self.post_processor(trace_file_path)
+                dir_name, original_filename = os.path.split(trace_file_path)
+                new_filename = f"postprocessing_{original_filename}"
+                trace_file_path = os.path.join(dir_name, new_filename)
+            with open(trace_file_path, 'w') as f:
+                json.dump(ragaai_trace, f, indent=2)
+            logger.info(f"After post processing Trace file saved at {trace_file_path}")
 
             # Create a ThreadPoolExecutor with max_workers=30
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_upload_workers) as executor:
@@ -227,7 +236,7 @@ class RAGATraceExporter(SpanExporter):
                         base_url=self.base_url
                     ).upload_traces,
                     additional_metadata_keys=additional_metadata
-                )
+                ) 
                 
                 # Implement retry logic - attempt upload up to 3 times
                 max_retries = 3
