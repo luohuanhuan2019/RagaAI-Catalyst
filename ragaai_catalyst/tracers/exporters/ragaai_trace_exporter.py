@@ -216,12 +216,7 @@ class RAGATraceExporter(SpanExporter):
             logger.info(f"Trace file saved at {trace_file_path}")
             if self.post_processor!=None:
                 trace_file_path = self.post_processor(trace_file_path)
-                dir_name, original_filename = os.path.split(trace_file_path)
-                new_filename = f"postprocessing_{original_filename}"
-                trace_file_path = os.path.join(dir_name, new_filename)
-            with open(trace_file_path, 'w') as f:
-                json.dump(ragaai_trace, f, indent=2)
-            logger.info(f"After post processing Trace file saved at {trace_file_path}")
+                logger.info(f"After post processing Trace file saved at {trace_file_path}")
 
             # Create a ThreadPoolExecutor with max_workers=30
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_upload_workers) as executor:

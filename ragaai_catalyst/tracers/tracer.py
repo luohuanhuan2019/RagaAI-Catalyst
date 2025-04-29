@@ -434,13 +434,13 @@ class Tracer(AgenticTracing):
                 masked_traces = []
                 for item in data:
                     if isinstance(item, dict) and 'traces' in item:
-                        masked = recursive_mask_values(item['traces'])
-                        masked_traces.extend(masked if isinstance(masked, list) else [masked])
+                        item['traces'] = recursive_mask_values(item['traces'])
+                        masked_traces.append(item)
                 data = masked_traces
-            
-            # Create new filename with 'processed_' prefix in /var/tmp/
+            # Create new filename with 'processed_' prefix 
             new_filename = f"processed_{original_path.name}"
-            final_trace_json_path = Path("/var/tmp") / new_filename
+            dir_name, original_filename = os.path.split(original_trace_json_path)
+            final_trace_json_path = Path(dir_name) / new_filename
             
             # Write modified data to the new file
             with open(final_trace_json_path, 'w') as f:
