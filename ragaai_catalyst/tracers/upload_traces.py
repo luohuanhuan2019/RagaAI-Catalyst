@@ -36,18 +36,17 @@ class UploadTraces:
             "model_name": {"columnType": "metadata"},
             "total_cost": {"columnType": "metadata", "dataType": "numerical"},
             "total_latency": {"columnType": "metadata", "dataType": "numerical"},
+            "error": {"columnType": "metadata"}
         }
 
         if additional_metadata_keys:
             for key in additional_metadata_keys:
                 if key == "model_name":
                     SCHEMA_MAPPING_NEW['response']["modelName"] = additional_metadata_keys[key]
+                elif key == "error":
+                    pass
                 else:
                     SCHEMA_MAPPING_NEW[key] = {"columnType": key, "parentColumn": "response"}
-
-        if "error" in additional_metadata_keys and additional_metadata_keys["error"]:
-            SCHEMA_MAPPING_NEW.pop("error", None)
-            SCHEMA_MAPPING_NEW["error"] = {"columnType": "metadata"}
 
         if additional_pipeline_keys:
             for key in additional_pipeline_keys:
