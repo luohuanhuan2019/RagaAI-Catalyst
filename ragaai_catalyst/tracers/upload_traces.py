@@ -46,6 +46,7 @@ class UploadTraces:
                     SCHEMA_MAPPING_NEW[key] = {"columnType": key, "parentColumn": "response"}
 
         if "error" in additional_metadata_keys and additional_metadata_keys["error"]:
+            SCHEMA_MAPPING_NEW.pop("error", None)
             SCHEMA_MAPPING_NEW["error"] = {"columnType": "metadata"}
 
         if additional_pipeline_keys:
