@@ -859,3 +859,30 @@ class Tracer(AgenticTracing):
             self.user_context = context
         else:
             raise TypeError("context must be a string")
+    
+    def add_metadata(self, metadata):
+        """
+        Add metadata information to the trace. This method is only supported for 'langchain' and 'llamaindex' tracer types.
+
+        Args:
+            metadata: Additional metadata information to be added to the trace. Can be a dictionary.
+
+        Raises:
+            ValueError: If tracer_type is not 'langchain' or 'llamaindex'.
+        """
+        if self.tracer_type not in ["langchain", "llamaindex"]:
+            raise ValueError("add_metadata is only supported for 'langchain' and 'llamaindex' tracer types")
+        
+        # Convert string metadata to string if needed
+        user_details = self.user_details
+        user_metadata = user_details["trace_user_detail"]["metadata"]
+        if isinstance(metadata, dict):
+            for key, value in metadata.items():
+                if key in user_metadata:
+                    user_metadata[key] = value
+                else:
+                    raise ValueError(f"Key '{key}' not found in metadata")
+            self.dynamic_exporter.user_details = user_details
+            self.metadata = user_metadata
+        else:
+            raise TypeError("metadata must be a dictionary")
