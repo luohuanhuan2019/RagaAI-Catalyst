@@ -48,6 +48,11 @@ class UploadTraces:
                 else:
                     SCHEMA_MAPPING_NEW[key] = {"columnType": key, "parentColumn": "response"}
 
+        if self.user_detail and self.user_detail["trace_user_detail"]["metadata"]:
+            for key in self.user_detail["trace_user_detail"]["metadata"]:
+                if key not in SCHEMA_MAPPING_NEW:
+                    SCHEMA_MAPPING_NEW[key] = {"columnType": "metadata"}
+
         if additional_pipeline_keys:
             for key in additional_pipeline_keys:
                 SCHEMA_MAPPING_NEW[key] = {"columnType": "pipeline"}
