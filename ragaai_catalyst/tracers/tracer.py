@@ -546,7 +546,7 @@ class Tracer(AgenticTracing):
 
     def _improve_metadata(self, metadata, tracer_type):
         if metadata is None:
-            metadata = {"metadata": {}}
+            metadata = {}
         metadata.setdefault("log_source", f"{tracer_type}_tracer")
         metadata.setdefault("recorded_on", str(datetime.datetime.now()))
         return metadata
