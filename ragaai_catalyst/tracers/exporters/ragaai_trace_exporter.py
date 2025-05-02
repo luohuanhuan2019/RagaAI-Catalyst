@@ -18,7 +18,6 @@ import logging
 import asyncio
 import concurrent.futures
 from functools import partial
-import traceback
 
 logger = logging.getLogger("RagaAICatalyst")
 logging_level = (
