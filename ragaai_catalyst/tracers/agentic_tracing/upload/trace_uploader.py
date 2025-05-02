@@ -19,7 +19,6 @@ import glob
 from logging.handlers import RotatingFileHandler
 import concurrent.futures
 from typing import Dict, Any, Optional
-import traceback
 
 # Set up logging
 log_dir = os.path.join(tempfile.gettempdir(), "ragaai_logs")
@@ -159,7 +158,6 @@ def process_upload(task_id: str, filepath: str, hash_id: str, zip_path: str,
                 logger.info(f"Trace metrics uploaded: {response}")
             except Exception as e:
                 logger.error(f"Error uploading trace trace uploader metrics: {e}")
-                print("traceback_uploader ",traceback.format_exc())
                 # Continue with other uploads
         else:
             logger.warning(f"Trace file {filepath} not found, skipping metrics upload")
